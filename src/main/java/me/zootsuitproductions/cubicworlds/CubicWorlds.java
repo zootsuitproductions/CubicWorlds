@@ -40,9 +40,12 @@ public class CubicWorlds extends JavaPlugin implements Listener {
                 int radius = Integer.parseInt(args[0]);
                 Location dest = new Location(p.getWorld(), p.getLocation().getBlockX(), 150, p.getLocation().getBlockZ());
 
-                new CubeWorld(p.getLocation(),dest,radius);
+                cube = new CubeWorld(p.getLocation(),dest,radius);
 //                new CubePermutation(p.getLocation(),dest,radius,);
             }
+        } else if (cmd.getName().equalsIgnoreCase("changeEdge")) {
+            Player p = (Player) sender;
+            cube.teleportToClosestFace(p);
         }
         return true;
     }

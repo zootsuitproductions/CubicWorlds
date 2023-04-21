@@ -1,77 +1,86 @@
 package me.zootsuitproductions.cubicworlds;
 
+import org.joml.Matrix3d;
 import org.joml.Vector3d;
 
 public class AxisTransformation {
-  private Vector3d transformX;
-  private Vector3d transformY;
-  private Vector3d transformZ;
+  public final Matrix3d matrix;
+  private Matrix3d inverse;
 
-  public AxisTransformation(Vector3d transformationX, Vector3d transformationY, Vector3d transformationZ) {
-    this.transformX = transformationX;
-    this.transformY = transformationY;
-    this.transformZ = transformationZ;
+  public AxisTransformation(double[] matrixValues) {
+    matrix = new Matrix3d();
+    matrix.set(matrixValues);
+
+    inverse = new Matrix3d();
+    inverse.set(matrixValues);
+    inverse.invert();
+
+    //MAKE SURE THIS ACTUALLY INVERTS
+
+    //NOW IT ISNT ROTATING AT ALL
   }
 
-  // transform a coordinate
   public Vector3d apply(Vector3d coordinate) {
-    double x = coordinate.x;
-    double y = coordinate.y;
-    double z = coordinate.z;
-    return new Vector3d(
-        transformX.x * x + transformX.y * y + transformX.z * z,
-        transformY.x * x + transformY.y * y + transformY.z * z,
-        transformZ.x * x + transformZ.y * y + transformZ.z * z
-    );
+    Vector3d copy = new Vector3d(coordinate.x, coordinate.y, coordinate.z);
+    return matrix.transform(copy);
   }
 
   //
   public Vector3d unapply(Vector3d transformedCoord) {
-    double x = transformedCoord.x;
-    double y = transformedCoord.y;
-    double z = transformedCoord.z;
-    return new Vector3d(
-        -transformX.x * x + -transformX.y * y + -transformX.z * z,
-        -transformY.x * x + -transformY.y * y + -transformY.z * z,
-        -transformZ.x * x + -transformZ.y * y + -transformZ.z * z
-    );
+    Vector3d copy = new Vector3d(transformedCoord.x, transformedCoord.y, transformedCoord.z);
+    return inverse.transform(copy);
   }
 
   // Transformations for each of the cube faces
 
   public static final AxisTransformation TOP = new AxisTransformation(
-      new Vector3d(1.0, 0.0, 0.0),
-      new Vector3d(0.0, 1.0, 0.0),
-      new Vector3d(0.0, 0.0, 1.0)
+      new double[]{
+          1, 0, 0,
+          0, 1, 0,
+          0, 0, 1
+      }
   );
 
   public static final AxisTransformation BOTTOM = new AxisTransformation(
-      new Vector3d(1.0, 0.0, 0.0),
-      new Vector3d(0.0, -1.0, 0.0),
-      new Vector3d(0.0, 0.0, -1.0)
+      new double[]{
+          -1, 0, 0,
+          0, -1, 0,
+          0, 0, 1
+      }
   );
 
   public static final AxisTransformation RIGHT = new AxisTransformation(
-      new Vector3d(1.0, 0.0, 0.0),
-      new Vector3d(0.0, 0.0, 1.0),
-      new Vector3d(0.0, -1.0, 0.0)
+      new double[]{
+          1.0, 0.0, 0.0,
+          0.0, 0.0, 1.0,
+          0.0, -1.0, 0.0
+      }
   );
 
   public static final AxisTransformation LEFT = new AxisTransformation(
-      new Vector3d(1.0, 0.0, 0.0),
-      new Vector3d(0.0, 0.0, -1.0),
-      new Vector3d(0.0, 1.0, 0.0)
+      new double[]{
+          1.0, 0.0, 0.0,
+          0.0, 0.0, -1.0,
+          0.0, 1.0, 0.0
+      }
   );
 
   public static final AxisTransformation FRONT = new AxisTransformation(
-      new Vector3d(0.0, -1.0, 0.0),
-      new Vector3d(1.0, 0.0, 0.0),
-      new Vector3d(0.0, 0.0, 1.0)
+      new double[]{
+          0.0, -1.0, 0.0,
+          1.0, 0.0, 0.0,
+          0.0, 0.0, 1.0
+      }
   );
 
+  //x should be -y
+
   public static final AxisTransformation BACK = new AxisTransformation(
-      new Vector3d(0.0, 1.0, 0.0),
-      new Vector3d(-1.0, 0.0, 0.0),
-      new Vector3d(0.0, 0.0, 1.0)
+      new double[]{
+          0.0, 1.0, 0.0,
+          -1.0, 0.0, 0.0,
+          0.0, 0.0, 1.0
+      }
   );
+
 }

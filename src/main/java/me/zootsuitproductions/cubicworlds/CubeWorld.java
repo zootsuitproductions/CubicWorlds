@@ -2,46 +2,106 @@ package me.zootsuitproductions.cubicworlds;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import org.bukkit.Location;
-import org.bukkit.World;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
-import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
+import org.joml.Vector3d;
 
 public class CubeWorld {
+  Map<UUID, CubeRotation> currentPermutationOfPlayer = new HashMap<>();
+  AxisTransformation[] transformations = new AxisTransformation[] {
+      AxisTransformation.TOP,
+      AxisTransformation.FRONT,
+      AxisTransformation.BOTTOM,
+      AxisTransformation.BACK,
+      AxisTransformation.LEFT,
+      AxisTransformation.RIGHT
+  };
 
+  Vector3d[] faceCenters = new Vector3d[6];
+  CubeRotation[] cubeRotations = new CubeRotation[6];
 
+  public CubeWorld(Location center, Location pasteCenter, int radius) {
 
-  Map<Player, CubePermutation> currentPermutationOfPlayer = new HashMap<>();
+    int spaceBetweenCubeRotationsInWorld = radius*5;
 
-  public Coordinate fromWorldLocGetCoordinateRelativeToTheFirstCubePermutationInTheListFromLocation(Location loc, CubePermutation perm) {
-    return new Coordinate(
-        loc.getX() - perm.center.getBlockX(),
-        loc.getY() - perm.center.getBlockY(),
-        loc.getZ() - perm.center.getBlockZ()
-    );
+    faceCenters[0] = new Vector3d(0, radius,0);
+//    faceCenters[1] = new Vector3d(radius, 0,0);
+//    faceCenters[2] = new Vector3d(0, -radius,0);
+//    faceCenters[3] = new Vector3d(-radius, 0,0);
+//    faceCenters[4] = new Vector3d(0, 0, -radius);
+//    faceCenters[5] = new Vector3d(0, 0, radius);
+
+    cubeRotations[0] = new CubeRotation(center, pasteCenter, radius, AxisTransformation.TOP, faceCenters[0]);
+
+    System.out.println(faceCenters[0]);
+
+    for (int i = 1; i < transformations.length; i++) {
+      faceCenters[i] = transformations[i].apply(faceCenters[0]);
+      System.out.println("face index: " + i);
+
+      //look at this
+
+      System.out.println(faceCenters[i]);
+
+      cubeRotations[i] = new CubeRotation(
+          cubeRotations[0],
+          CubeRotation.translateLocation(pasteCenter, i * spaceBetweenCubeRotationsInWorld,0,0),
+          transformations[i],
+          faceCenters[i]);
+    }
   }
 
-  //angle needed to rotate center.
+  public void teleportToClosestFace(Player player) {
+    Location loc = player.getLocation();
+    CubeRotation currentRot = currentPermutationOfPlayer.getOrDefault(player.getUniqueId(), cubeRotations[0]);
+    Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(loc);
+
+    //get eye position
+    cubeWorldCoordinateOfPlayer = cubeWorldCoordinateOfPlayer.add(0, 0.62, 0);
+    CubeRotation closestFace = findClosestCubeRotationToCoordinate(cubeWorldCoordinateOfPlayer);
 
 
 
-  Map<Location, CubePermutation> faceUpPermutations = new HashMap<Location, CubePermutation>();
 
-  //map of player to which cube permutation they are on
-  // convert from coordinate in one perm to another. do this by
-  //whichever is closer
+    Vector3d localCoordOnClosestFace = closestFace.getLocalCoordinateFromWorldCoordinate(cubeWorldCoordinateOfPlayer);
+
+    //subtract one so the player's new viewport will align
+    localCoordOnClosestFace = localCoordOnClosestFace.sub(0, 1.62, 0);
 
 
+    Location actualWorldLocationToTeleportTo = closestFace.getLocationFromRelativeCoordinate(localCoordOnClosestFace);
 
-  public CubeWorld(Location center, Location pastedCenter, int radius) {
-    Location upVector = new Location(center.getWorld(), 0,1,0);
-    CubePermutation face1Up = new CubePermutation(center,pastedCenter,radius, upVector);
-    faceUpPermutations.put(upVector, face1Up);
-    
-    CubePermutation face2Up = new CubePermutation(face1Up, CubePermutation.translateLocation(pastedCenter, 25,0,0), upVector);
-    //face 0 pos x goes to face 1,
+    float newYaw = closestFace.convertYawFromOtherCubeRotation(loc.getYaw(), currentRot);
+    actualWorldLocationToTeleportTo.setYaw(newYaw);
+
+    //this wont work if you dig straight down to switch1!!!!
+    //!!!
+
+    //rotate the sun too!!!
+    actualWorldLocationToTeleportTo.setPitch(loc.getPitch() - 90f);
+
+    player.teleport(actualWorldLocationToTeleportTo);
+
+
+      //CHANGE THIS:::
+      currentPermutationOfPlayer.put(player.getUniqueId(), closestFace);
+
+
+  }
+
+  private CubeRotation findClosestCubeRotationToCoordinate(Vector3d coordinate) {
+    int closestFaceIndex = 0;
+    double closestDistance = coordinate.distance(faceCenters[0]);
+
+    for (int i = 1; i < faceCenters.length; i++) {
+      double distance = coordinate.distance(faceCenters[i]);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestFaceIndex = i;
+      }
+    }
+    return cubeRotations[closestFaceIndex];
   }
 
  /* private CubePermutation[] worldPermutations = new CubePermutation[6];

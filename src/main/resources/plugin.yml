@@ -9,3 +9,6 @@ commands:
   slice:
     description: Copies and pastes a block selection
     usage: /copypaste <copy/paste>
+  changeedge:
+    description: Copies and pastes a block selection
+    usage: /copypaste <copy/paste>
