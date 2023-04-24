@@ -9,7 +9,8 @@ import org.joml.Vector3d;
 
 public class CubeWorld {
   Map<UUID, CubeRotation> currentPermutationOfPlayer = new HashMap<>();
-  AxisTransformation[] transformations = new AxisTransformation[] {
+  Map<UUID, CubeRotation> previousPermutationOfPlayer = new HashMap<>();
+  public static AxisTransformation[] transformations = new AxisTransformation[] {
       AxisTransformation.TOP,
       AxisTransformation.FRONT,
       AxisTransformation.BOTTOM,
@@ -52,13 +53,25 @@ public class CubeWorld {
     }
   }
 
+  public void undoFaceSwitch(Player p) {
+    p.teleport(previousLoc);
+    currentPermutationOfPlayer.put(p.getUniqueId(), previousPermutationOfPlayer.get(p.getUniqueId()));
+  }
+
+  //NEGATIVE Z is off
+  //and negative x
+  //postives work
+
+  Location previousLoc;
   public void teleportToClosestFace(Player player) {
     Location loc = player.getLocation();
+    previousLoc = loc;
     CubeRotation currentRot = currentPermutationOfPlayer.getOrDefault(player.getUniqueId(), cubeRotations[0]);
-    Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(loc);
 
+    Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(loc);
+    System.out.println("Cube world Coordinate: " + cubeWorldCoordinateOfPlayer);
     //get eye position
-    cubeWorldCoordinateOfPlayer = cubeWorldCoordinateOfPlayer.add(0, 0.62, 0);
+    cubeWorldCoordinateOfPlayer = cubeWorldCoordinateOfPlayer.add(0, 1.62, 0);
     CubeRotation closestFace = findClosestCubeRotationToCoordinate(cubeWorldCoordinateOfPlayer);
 
 
@@ -66,7 +79,7 @@ public class CubeWorld {
 
     Vector3d localCoordOnClosestFace = closestFace.getLocalCoordinateFromWorldCoordinate(cubeWorldCoordinateOfPlayer);
 
-    //subtract one so the player's new viewport will align
+    //subtract so the player's new viewport will align
     localCoordOnClosestFace = localCoordOnClosestFace.sub(0, 1.62, 0);
 
 
@@ -85,6 +98,7 @@ public class CubeWorld {
 
 
       //CHANGE THIS:::
+      previousPermutationOfPlayer.put(player.getUniqueId(), currentRot);
       currentPermutationOfPlayer.put(player.getUniqueId(), closestFace);
 
 

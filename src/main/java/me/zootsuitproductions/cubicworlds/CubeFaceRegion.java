@@ -1,16 +1,172 @@
 package me.zootsuitproductions.cubicworlds;
 
+import java.util.Map;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Directional;
+import org.bukkit.block.data.Rotatable;
+import org.bukkit.material.MaterialData;
+import org.joml.Vector3d;
 
 public class CubeFaceRegion {
 
+  private final Location copyCenter;
   public final Location center;
-  public CubeFaceRegion(Location centerToCopy, Location centerOfPaste, int radius, int xSliceToFindRadius, int xRot, int zRot) {
+
+  private final AxisTransformation transformation;
+
+  //put in utils later:
+  private static Vector3d getVectorFromBlockFace(BlockFace blockFace) {
+    switch (blockFace) {
+      case UP:
+        return new Vector3d(0,1,0);
+      case DOWN:
+        return new Vector3d(0,-1,0);
+      case NORTH:
+        return new Vector3d(0,0,-1);
+      case SOUTH:
+        return new Vector3d(0,0,1);
+      case EAST:
+        return new Vector3d(1,0,0);
+      default:
+        return new Vector3d(-1,0,0);
+    }
+  }
+
+  private static BlockFace getBlockFaceFromVector(Vector3d vector) {
+    if (vector.x > 0) {
+      return BlockFace.EAST;
+    } else if (vector.x < 0) {
+      return BlockFace.WEST;
+    } else if (vector.y > 0) {
+      return BlockFace.UP;
+    } else if (vector.y < 0) {
+      return BlockFace.DOWN;
+    } else if (vector.z > 0) {
+      return BlockFace.SOUTH;
+    } else {
+      return BlockFace.NORTH;
+    }
+  }
+
+  private static BlockFace rotateBlockFace(BlockFace blockFace, AxisTransformation transformation) {
+    //fix this
+    if (transformation.matrix.get(0,0) != 1) {
+      System.out.println("a");//aa
+    }
+    return getBlockFaceFromVector(
+        transformation.unapply(
+            getVectorFromBlockFace(blockFace)));
+  }
+
+  private void copyRotateAndPaste(Vector3d worldCoordinate) {
+    Vector3d rotatedCoordinate = transformation.unapply(worldCoordinate);
+
+    Block copyBlock = new Location(copyCenter.getWorld(),
+        copyCenter.getBlockX() + worldCoordinate.x,
+        copyCenter.getBlockY() + worldCoordinate.y,
+        copyCenter.getBlockZ()  + worldCoordinate.z).getBlock();
+
+    BlockData blockData = copyBlock.getBlockData();
+
+    Block pasteBlock =  new Location(copyCenter.getWorld(),
+        center.getBlockX() + rotatedCoordinate.x,
+        center.getBlockY() + rotatedCoordinate.y,
+        center.getBlockZ()  + rotatedCoordinate.z).getBlock();
+
+    System.out.println("mat: " + blockData.getMaterial());
+
+
+    if (blockData instanceof Rotatable) {
+      Rotatable rotatable = (Rotatable) blockData;
+      rotatable.setRotation(BlockFace.EAST);
+
+
+
+      System.out.println("mat rotate: " + rotatable.getMaterial());
+      try {
+        BlockFace newDirection = rotateBlockFace(
+            rotatable.getRotation(), transformation);
+
+        //set up the workflOWWWW
+
+        //is this failing??
+
+
+        //i need debugger
+//
+
+//        System.out.println("material: "+ directional.getMaterial() + " , facing: " + directional.getFacing() + ", new facing: " + newDirection);
+////        c.setFacing(BlockFace.EAST); // Change the direction as needed
+        rotatable.setRotation(newDirection);
+        copyBlock.setBlockData(rotatable);
+      } catch (Exception e) {
+        System.out.println("error: " + e.getMessage());
+      }
+
+//      pasteBlock.setBlockData(newDirection?!?snakd);
+
+    } else if (blockData instanceof Directional) {
+
+      Directional directional = (Directional) blockData;
+
+      System.out.println("mat directional: " + directional.getMaterial());
+//      directional.setFacing(BlockFace.EAST);
+//      copyBlock.setBlockData(directional);
+//
+//      System.out.println("type: "  + copyBlock.getType());
+//      System.out.println("FACING: "  + ((Directional) copyBlock.getBlockData()).getFacing());
+//      System.out.println("faces: "  + ((Directional) copyBlock.getBlockData()).getFaces());
+
+      try {
+        BlockFace newDirection = rotateBlockFace(
+            directional.getFacing(), transformation);
+//
+//        System.out.println("material: "+ directional.getMaterial() + " , facing: " + directional.getFacing() + ", new facing: " + newDirection);
+////        c.setFacing(BlockFace.EAST); // Change the direction as needed
+        directional.setFacing(newDirection);
+        copyBlock.setBlockData(directional);
+      } catch (Exception e) {
+
+        System.out.println("error: " + e.getMessage());
+      }
+
+      pasteBlock.setBlockData(directional);
+    } else {
+      pasteBlock.setBlockData(blockData);
+    }
+
+
+  }
+
+  private static int lastCopyCenter = 0;
+  private static int materialIndex = 0;
+  private static Material[] mats = new Material[] {Material.BLUE_STAINED_GLASS,
+      Material.RED_STAINED_GLASS,
+      Material.WHITE_STAINED_GLASS,
+      Material.GREEN_STAINED_GLASS,
+      Material.YELLOW_STAINED_GLASS,
+      Material.PURPLE_STAINED_GLASS
+  };
+  private static Material getNextStainedGlassColor(int copyCenterX) {
+    if (copyCenterX == lastCopyCenter) {
+      return  mats[materialIndex];
+    } else {
+      materialIndex ++;
+      lastCopyCenter = copyCenterX;
+      return mats[materialIndex];
+    }
+  }
+
+  public CubeFaceRegion(Location centerToCopy, Location centerOfPaste, int radius, int xSliceToFindRadius, /*int xRot, int zRot,*/ AxisTransformation transformation) {
     center = centerOfPaste;
+    copyCenter = centerToCopy;
+    this.transformation = transformation;
 
     World world = centerToCopy.getWorld();
 
@@ -24,25 +180,20 @@ public class CubeFaceRegion {
     for (int y = -radius; y < 0; y++) {
       for (int x = -(radius + y); x <= (radius + y); x++) {
         for (int z = -(radius + y); z <= (radius + y); z++) {
-          Block copyBlock = new Location(world, centerX + x, centerY + y, centerZ + z).getBlock();
-
-          Location beforeRotatingPasteLoc = new Location(world, centerOfPaste.getBlockX() + x, centerOfPaste.getBlockY() + y, centerOfPaste.getBlockZ() + z);
-          Location pasteLoc = rotateLocation(beforeRotatingPasteLoc, xRot, zRot, 0, centerOfPaste);
-
-          pasteLoc.getBlock().setBlockData(copyBlock.getBlockData());
+          copyRotateAndPaste(new Vector3d(x,y,z));
         }
       }
     }
+
+    //THE PROBLEM ISNT THE PLACEMENT, ITS THE WORLD. THIS ROTATION FUNCTION IS WRONG
+
+
     //loop in a cube above the center y
     for (int y = 0; y <= radius; y++) {
       for (int x = -radius; x <= radius; x++) {
         for (int z = -radius; z <= radius; z++) {
-          Block copyBlock = new Location(world, centerX + x, centerY + y, centerZ + z).getBlock();
+          copyRotateAndPaste(new Vector3d(x,y,z));
 
-          Location beforeRotatingPasteLoc = new Location(world, centerOfPaste.getBlockX() + x, centerOfPaste.getBlockY() + y, centerOfPaste.getBlockZ() + z);
-          Location pasteLoc = rotateLocation(beforeRotatingPasteLoc, xRot, zRot, 0, centerOfPaste);
-
-          pasteLoc.getBlock().setBlockData(copyBlock.getBlockData());
         }
       }
     }

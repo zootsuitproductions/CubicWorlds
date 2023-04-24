@@ -12,3 +12,6 @@ commands:
   changeedge:
     description: Copies and pastes a block selection
     usage: /copypaste <copy/paste>
+  back:
+    description: Copies and pastes a block selection
+    usage: /copypaste <copy/paste>

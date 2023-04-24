@@ -46,6 +46,9 @@ public class CubicWorlds extends JavaPlugin implements Listener {
         } else if (cmd.getName().equalsIgnoreCase("changeEdge")) {
             Player p = (Player) sender;
             cube.teleportToClosestFace(p);
+        } else if (cmd.getName().equalsIgnoreCase("back")) {
+            Player p = (Player) sender;
+            cube.undoFaceSwitch(p);
         }
         return true;
     }

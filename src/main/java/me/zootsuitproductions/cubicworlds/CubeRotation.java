@@ -21,41 +21,79 @@ public class CubeRotation {
     this.axisTransformation = upFace;
     this.topFaceCoordinateOnMainWorld = topFaceCoordinateOnMainWorld;
 
+//    faceCenters[0] = translateLocation(pasteCenter, 0, radius, 0);
+//    faces[0] = new CubeFaceRegion(
+//        centerInWorld,
+//        faceCenters[0],
+//        radius, 0, 0,0);
+//
+//    faceCenters[1] = translateLocation(pasteCenter, -radius, 0, 0);
+//    faces[1] = new CubeFaceRegion(
+//        translateLocation(centerInWorld, -2*radius + 1, 0, 0),
+//        faceCenters[1],
+//        radius, 0, 0,90);
+//
+//    faceCenters[2] = translateLocation(pasteCenter, 0, -radius, 0);
+//    faces[2] = new CubeFaceRegion(
+//        translateLocation(centerInWorld, 4*radius + 2, 0, 0),
+//        faceCenters[2],
+//        radius, 0, 0,180);
+//
+//    faceCenters[3] = translateLocation(pasteCenter, radius, 0, 0);
+//    faces[3] = new CubeFaceRegion(
+//        translateLocation(centerInWorld, 2*radius - 1, 0, 0),
+//        faceCenters[3],
+//        radius, 0, 0,-90);
+//
+//    faceCenters[4] = translateLocation(pasteCenter, 0, 0, radius);
+//    faces[4] = new CubeFaceRegion(
+//        translateLocation(centerInWorld, 0, 0, 2*radius - 1),
+//        faceCenters[4],
+//        radius, 0, -90,0);
+//
+//    faceCenters[5] = translateLocation(pasteCenter, 0, 0, -radius);
+//    faces[5] = new CubeFaceRegion(
+//        translateLocation(centerInWorld, 0, 0, -2*radius + 1),
+//        faceCenters[5],
+//        radius, 0, 90,0);
+
     faceCenters[0] = translateLocation(pasteCenter, 0, radius, 0);
     faces[0] = new CubeFaceRegion(
         centerInWorld,
         faceCenters[0],
-        radius, 0, 0,0);
+        radius, 0, CubeWorld.transformations[0]);
 
     faceCenters[1] = translateLocation(pasteCenter, -radius, 0, 0);
     faces[1] = new CubeFaceRegion(
-        translateLocation(centerInWorld, -2*radius + 1, 0, 0),
+        translateLocation(centerInWorld, -2*radius - 1, 0, 0),
         faceCenters[1],
-        radius, 0, 0,90);
-
+        radius, 0, CubeWorld.transformations[1]);
+//
     faceCenters[2] = translateLocation(pasteCenter, 0, -radius, 0);
     faces[2] = new CubeFaceRegion(
         translateLocation(centerInWorld, 4*radius + 2, 0, 0),
         faceCenters[2],
-        radius, 0, 0,180);
-
+        radius, 0, CubeWorld.transformations[2]);
+//
     faceCenters[3] = translateLocation(pasteCenter, radius, 0, 0);
     faces[3] = new CubeFaceRegion(
-        translateLocation(centerInWorld, 2*radius - 1, 0, 0),
+        translateLocation(centerInWorld, 2*radius + 1, 0, 0),
         faceCenters[3],
-        radius, 0, 0,-90);
+        radius, 0, CubeWorld.transformations[3]);
 
     faceCenters[4] = translateLocation(pasteCenter, 0, 0, radius);
     faces[4] = new CubeFaceRegion(
-        translateLocation(centerInWorld, 0, 0, 2*radius - 1),
+        translateLocation(centerInWorld, 0, 0, 2*radius + 1),
         faceCenters[4],
-        radius, 0, -90,0);
+        radius, 0, CubeWorld.transformations[4]);
 
     faceCenters[5] = translateLocation(pasteCenter, 0, 0, -radius);
     faces[5] = new CubeFaceRegion(
-        translateLocation(centerInWorld, 0, 0, -2*radius + 1),
+        translateLocation(centerInWorld, 0, 0, -2*radius - 1),
         faceCenters[5],
-        radius, 0, 90,0);
+        radius, 0, CubeWorld.transformations[5]);
+
+
   }
 
   public CubeRotation(CubeRotation mainCube, Location pasteCenter, AxisTransformation axisTransformation, Vector3d topFaceCoordinateOnMainWorld) {
@@ -68,10 +106,10 @@ public class CubeRotation {
       for (int y = -2 * radius - 1; y <= 2 * radius + 1; y++) {
         for (int z = -2 * radius - 1; z <= 2 * radius + 1; z++) {
           Vector3d localCoordinateSource = new Vector3d(x, y, z);
-          BlockData copyBlockData = mainCube.getLocationFromRelativeCoordinate(localCoordinateSource).getBlock().getBlockData();
+          BlockData copyBlockData = mainCube.getBlockLocationFromRelativeCoordinate(localCoordinateSource).getBlock().getBlockData();
 
           Vector3d localCoordinateDest = axisTransformation.unapply(localCoordinateSource); //this is rotated
-          Location worldDestination = getLocationFromRelativeCoordinate(localCoordinateDest);
+          Location worldDestination = getBlockLocationFromRelativeCoordinate(localCoordinateDest);
 
           worldDestination.getBlock().setBlockData(copyBlockData);
         }
@@ -138,7 +176,12 @@ public class CubeRotation {
   }
 
   public Location getLocationFromRelativeCoordinate(Vector3d vector) {
-    return new Location(center.getWorld(), center.getX() + vector.x, center.getY() + vector.y, center.getZ() + vector.z);
+    System.out.println("center coordinate x + : " + center.getBlockX() + 0.0001);
+    return new Location(center.getWorld(), center.getBlockX() + 0.5 + vector.x, center.getBlockY() + 0.5 + vector.y, center.getBlockZ() + 0.5 + vector.z);
+  }
+
+  public Location getBlockLocationFromRelativeCoordinate(Vector3d vector) {
+    return new Location(center.getWorld(), center.getBlockX() + vector.x, center.getBlockY() + vector.y, center.getBlockZ() + vector.z);
   }
 
 //  public Location getBlockLocationFromRelativeCoordinate(Vector3d vector) {
@@ -148,11 +191,17 @@ public class CubeRotation {
   //fix the world gen getting fucked from not rotating center block. TEST
 
   private Vector3d getLocationRelativeToThisPermutation(Location loc) {
-     return new Vector3d(
-         loc.getX() - center.getX(),
-         loc.getY() - center.getY(),
-         loc.getZ() - center.getZ());
-  }
+    Vector3d toReturn = new Vector3d(
+        loc.getX() - (center.getBlockX() + 0.5),
+        loc.getY() - (center.getBlockY() + 0.5),
+        loc.getZ() - (center.getBlockZ() + 0.5));
+
+
+    //THE ROUNDING IS WHAT FUCKED IT
+    System.out.println("local coord " + Math.round(toReturn.x) + " " + Math.round(toReturn.y) + " " + Math.round(toReturn.z));
+
+     return toReturn;
+  } //maybe make block
 
   public Vector3d getCubeWorldCoordinate(Location loc) {
     System.out.println("coordinate before applying transform: " + getLocationRelativeToThisPermutation(loc));
