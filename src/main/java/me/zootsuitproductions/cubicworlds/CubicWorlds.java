@@ -50,6 +50,10 @@ public class CubicWorlds extends JavaPlugin implements Listener {
             Player p = (Player) sender;
             cube.undoFaceSwitch(p);
         }
+        else if (cmd.getName().equalsIgnoreCase("rot")) {
+            Player p = (Player) sender;
+            System.out.println("suck");
+        }
         return true;
     }
 

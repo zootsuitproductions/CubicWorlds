@@ -9,8 +9,5 @@
         <module name="CubicWorlds" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel>
-      <module name="CubicWorlds" target="1.8" />
-    </bytecodeTargetLevel>
   </component>
 </project>

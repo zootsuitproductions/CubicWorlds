@@ -1,9 +1,0 @@
-<component name="ArtifactManager">
-  <artifact type="jar" name="DEBUG">
-    <output-path>$USER_HOME$/Desktop/Plugin Server/plugins</output-path>
-    <root id="archive" name="CubicWorlds.jar">
-      <element id="module-output" name="CubicWorlds" />
-      <element id="extracted-dir" path="$USER_HOME$/Downloads/worldedit-bukkit-7.2.14.jar" path-in-jar="/" />
-    </root>
-  </artifact>
-</component>

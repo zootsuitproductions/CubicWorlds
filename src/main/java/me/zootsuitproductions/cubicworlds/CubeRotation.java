@@ -21,42 +21,6 @@ public class CubeRotation {
     this.axisTransformation = upFace;
     this.topFaceCoordinateOnMainWorld = topFaceCoordinateOnMainWorld;
 
-//    faceCenters[0] = translateLocation(pasteCenter, 0, radius, 0);
-//    faces[0] = new CubeFaceRegion(
-//        centerInWorld,
-//        faceCenters[0],
-//        radius, 0, 0,0);
-//
-//    faceCenters[1] = translateLocation(pasteCenter, -radius, 0, 0);
-//    faces[1] = new CubeFaceRegion(
-//        translateLocation(centerInWorld, -2*radius + 1, 0, 0),
-//        faceCenters[1],
-//        radius, 0, 0,90);
-//
-//    faceCenters[2] = translateLocation(pasteCenter, 0, -radius, 0);
-//    faces[2] = new CubeFaceRegion(
-//        translateLocation(centerInWorld, 4*radius + 2, 0, 0),
-//        faceCenters[2],
-//        radius, 0, 0,180);
-//
-//    faceCenters[3] = translateLocation(pasteCenter, radius, 0, 0);
-//    faces[3] = new CubeFaceRegion(
-//        translateLocation(centerInWorld, 2*radius - 1, 0, 0),
-//        faceCenters[3],
-//        radius, 0, 0,-90);
-//
-//    faceCenters[4] = translateLocation(pasteCenter, 0, 0, radius);
-//    faces[4] = new CubeFaceRegion(
-//        translateLocation(centerInWorld, 0, 0, 2*radius - 1),
-//        faceCenters[4],
-//        radius, 0, -90,0);
-//
-//    faceCenters[5] = translateLocation(pasteCenter, 0, 0, -radius);
-//    faces[5] = new CubeFaceRegion(
-//        translateLocation(centerInWorld, 0, 0, -2*radius + 1),
-//        faceCenters[5],
-//        radius, 0, 90,0);
-
     faceCenters[0] = translateLocation(pasteCenter, 0, radius, 0);
     faces[0] = new CubeFaceRegion(
         centerInWorld,
@@ -111,7 +75,7 @@ public class CubeRotation {
           Vector3d localCoordinateDest = axisTransformation.unapply(localCoordinateSource); //this is rotated
           Location worldDestination = getBlockLocationFromRelativeCoordinate(localCoordinateDest);
 
-          worldDestination.getBlock().setBlockData(copyBlockData);
+          worldDestination.getBlock().setBlockData(CubeFaceRegion.rotateBlockData(copyBlockData, axisTransformation));
         }
       }
     }

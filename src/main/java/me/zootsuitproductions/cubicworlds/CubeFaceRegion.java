@@ -1,14 +1,14 @@
 package me.zootsuitproductions.cubicworlds;
 
 import java.util.Map;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
+
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
+import org.bukkit.block.data.Orientable;
 import org.bukkit.block.data.Rotatable;
 import org.bukkit.material.MaterialData;
 import org.joml.Vector3d;
@@ -56,12 +56,121 @@ public class CubeFaceRegion {
 
   private static BlockFace rotateBlockFace(BlockFace blockFace, AxisTransformation transformation) {
     //fix this
-    if (transformation.matrix.get(0,0) != 1) {
-      System.out.println("a");//aa
-    }
+
     return getBlockFaceFromVector(
         transformation.unapply(
             getVectorFromBlockFace(blockFace)));
+  }
+
+  private static Axis rotateAxis(Axis axis, AxisTransformation transformation) {
+    return getAxisFromVector(
+            transformation.unapply(
+                    getVectorFromAxis(axis)));
+  }
+
+  private static Vector3d getVectorFromAxis(Axis axis) {
+    switch (axis) {
+      case X:
+        return new Vector3d(1,0,0);
+      case Y:
+        return new Vector3d(0,1,0);
+      default:
+        return new Vector3d(0,0,1);
+    }
+  }
+
+  private static Axis getAxisFromVector(Vector3d vector3d) {
+    if (vector3d.x != 0) {
+      return Axis.X;
+    } else if (vector3d.y != 0) {
+      return Axis.Y;
+    } else {
+      return Axis.Z;
+    }
+  }
+
+
+  public static BlockData rotateBlockData(BlockData blockData, AxisTransformation transformation) {
+
+    if (blockData instanceof Orientable) {
+      Orientable orientable = (Orientable) blockData;
+
+      try {
+        orientable.setAxis(rotateAxis(orientable.getAxis(), transformation));
+
+        return orientable;
+      } catch (Exception e) {
+      }
+    }
+
+    if (blockData instanceof Directional) {
+      Directional directional = (Directional) blockData;
+
+      try {
+        BlockFace newDirection = rotateBlockFace(
+                directional.getFacing(), transformation);
+        directional.setFacing(newDirection);
+
+        return directional;
+      } catch (Exception e) {
+      }
+
+    }
+
+    //changing pos x edge twice is messed up
+    //changing anything twice is fucked.
+
+    return blockData;
+//
+//     BlockData rotatedLogData = new Location(loc.getWorld(), 330, 159, 176).getBlock().getBlockData();
+//     copyBlock.setBlockData(rotatedLogData);
+
+
+     //just have the block in the world and copy from that
+    //save the blockdata of rotated log in the persistent storage
+    //set it to the saved copy and then set the material of that block data.
+
+
+//    if (copyBlock.getBlockData().
+//
+//            hasProperty(BlockStateProperties.AXIS)) {
+//      Direction.Axis axis = logState.get(BlockStateProperties.AXIS);
+//      // Use the axis variable as needed
+//    }
+
+
+     //log axis y
+    //half
+//    if (blockData instanceof Rotatable) {
+//      Rotatable rotatable = (Rotatable) blockData;
+//      System.out.println(rotatable.getRotation());
+//      try {
+//        BlockFace newDirection = rotateBlockFace(
+//                rotatable.getRotation(), transformation);
+//        System.out.println(newDirection);
+//
+//        rotatable.setRotation(newDirection);
+//        copyBlock.setBlockData(rotatable);
+//      } catch (Exception e) {
+//        System.out.println("error: " + e.getMessage());
+//      }
+//    } else if (blockData instanceof Directional) {
+//
+//      Directional directional = (Directional) blockData;
+//      System.out.println(directional.getFacing());
+//
+//      try {
+//        BlockFace newDirection = rotateBlockFace(
+//                directional.getFacing(), transformation);
+//        directional.setFacing(newDirection);
+//        System.out.println(newDirection);
+//        copyBlock.setBlockData(directional);
+//      } catch (Exception e) {
+//
+//        System.out.println("error: " + e.getMessage());
+//      }
+//
+//    }
   }
 
   private void copyRotateAndPaste(Vector3d worldCoordinate) {
@@ -81,65 +190,69 @@ public class CubeFaceRegion {
 
     System.out.println("mat: " + blockData.getMaterial());
 
+    //change grass to moss. if its not facing up. need to check that
 
-    if (blockData instanceof Rotatable) {
-      Rotatable rotatable = (Rotatable) blockData;
-      rotatable.setRotation(BlockFace.EAST);
-
-
-
-      System.out.println("mat rotate: " + rotatable.getMaterial());
-      try {
-        BlockFace newDirection = rotateBlockFace(
-            rotatable.getRotation(), transformation);
-
-        //set up the workflOWWWW
-
-        //is this failing??
-
-
-        //i need debugger
+    pasteBlock.setBlockData(rotateBlockData(blockData, transformation));
 //
-
-//        System.out.println("material: "+ directional.getMaterial() + " , facing: " + directional.getFacing() + ", new facing: " + newDirection);
-////        c.setFacing(BlockFace.EAST); // Change the direction as needed
-        rotatable.setRotation(newDirection);
-        copyBlock.setBlockData(rotatable);
-      } catch (Exception e) {
-        System.out.println("error: " + e.getMessage());
-      }
-
-//      pasteBlock.setBlockData(newDirection?!?snakd);
-
-    } else if (blockData instanceof Directional) {
-
-      Directional directional = (Directional) blockData;
-
-      System.out.println("mat directional: " + directional.getMaterial());
-//      directional.setFacing(BlockFace.EAST);
-//      copyBlock.setBlockData(directional);
 //
-//      System.out.println("type: "  + copyBlock.getType());
-//      System.out.println("FACING: "  + ((Directional) copyBlock.getBlockData()).getFacing());
-//      System.out.println("faces: "  + ((Directional) copyBlock.getBlockData()).getFaces());
-
-      try {
-        BlockFace newDirection = rotateBlockFace(
-            directional.getFacing(), transformation);
+//    if (blockData instanceof Rotatable) {
+//      Rotatable rotatable = (Rotatable) blockData;
+//      rotatable.setRotation(BlockFace.EAST);
 //
-//        System.out.println("material: "+ directional.getMaterial() + " , facing: " + directional.getFacing() + ", new facing: " + newDirection);
-////        c.setFacing(BlockFace.EAST); // Change the direction as needed
-        directional.setFacing(newDirection);
-        copyBlock.setBlockData(directional);
-      } catch (Exception e) {
-
-        System.out.println("error: " + e.getMessage());
-      }
-
-      pasteBlock.setBlockData(directional);
-    } else {
-      pasteBlock.setBlockData(blockData);
-    }
+//
+//
+//      System.out.println("mat rotate: " + rotatable.getMaterial());
+//      try {
+//        BlockFace newDirection = rotateBlockFace(
+//            rotatable.getRotation(), transformation);
+//
+//        //set up the workflOWWWW
+//
+//        //is this failing??
+//
+//
+//        //i need debugger
+////
+//
+////        System.out.println("material: "+ directional.getMaterial() + " , facing: " + directional.getFacing() + ", new facing: " + newDirection);
+//////        c.setFacing(BlockFace.EAST); // Change the direction as needed
+//        rotatable.setRotation(newDirection);
+//        copyBlock.setBlockData(rotatable);
+//      } catch (Exception e) {
+//        System.out.println("error: " + e.getMessage());
+//      }
+//
+////      pasteBlock.setBlockData(newDirection?!?snakd);
+//
+//    } else if (blockData instanceof Directional) {
+//
+//      Directional directional = (Directional) blockData;
+//
+//      System.out.println("mat directional: " + directional.getMaterial());
+////      directional.setFacing(BlockFace.EAST);
+////      copyBlock.setBlockData(directional);
+////
+////      System.out.println("type: "  + copyBlock.getType());
+////      System.out.println("FACING: "  + ((Directional) copyBlock.getBlockData()).getFacing());
+////      System.out.println("faces: "  + ((Directional) copyBlock.getBlockData()).getFaces());
+//
+//      try {
+//        BlockFace newDirection = rotateBlockFace(
+//            directional.getFacing(), transformation);
+////
+////        System.out.println("material: "+ directional.getMaterial() + " , facing: " + directional.getFacing() + ", new facing: " + newDirection);
+//////        c.setFacing(BlockFace.EAST); // Change the direction as needed
+//        directional.setFacing(newDirection);
+//        copyBlock.setBlockData(directional);
+//      } catch (Exception e) {
+//
+//        System.out.println("error: " + e.getMessage());
+//      }
+//
+//      pasteBlock.setBlockData(directional);
+//    } else {
+//      pasteBlock.setBlockData(blockData);
+//    }
 
 
   }

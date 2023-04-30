@@ -15,3 +15,6 @@ commands:
   back:
     description: Copies and pastes a block selection
     usage: /copypaste <copy/paste>
+  rot:
+    description: Copies and pastes a block selection
+    usage: /copypaste <copy/paste>
