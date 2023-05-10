@@ -3,6 +3,7 @@ package me.zootsuitproductions.cubicworlds;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.entity.Player;
 import org.joml.Vector3d;
 
 import java.util.HashMap;
@@ -105,6 +106,27 @@ public class CubeRotation {
     } else {
       return 90;
     }
+  }
+
+  public static Vector3d convertYawPitchToVector(float yaw, float pitch) {
+    double yawRadian = Math.toRadians(yaw);
+    double pitchRadian = Math.toRadians(pitch);
+
+    double x = -Math.sin(yawRadian);
+    double y = -Math.sin(pitchRadian);
+    double z = Math.cos(yawRadian);
+
+    return new Vector3d(x, y, z);
+  }
+
+  public static void setPlayerLookDirectionToVector(Player player, Vector3d vector3d) {
+    float yawRadian = (float) -Math.asin(vector3d.x);
+    float yawRadian1 = (float) Math.acos(vector3d.z);
+    player.sendMessage("radx" + yawRadian);
+    player.sendMessage("radz" + yawRadian1);
+
+
+    //degreews
   }
 
   public float convertYawFromOtherCubeRotation(float yaw, CubeRotation other) {

@@ -1,7 +1,8 @@
 package me.zootsuitproductions.cubicworlds;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+
+import org.bukkit.Material;
+import org.bukkit.WorldCreator;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
@@ -12,11 +13,16 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.material.Vine;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.World;
 import org.bukkit.Location;
+import org.bukkit.scheduler.BukkitRunnable;
 
 
 public class CubicWorlds extends JavaPlugin implements Listener {
@@ -30,9 +36,31 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     //
     // Pos x edge
 
+
+    /*
+
+
+    NOTES:
+    - instead of copying to a different location, make the block cone cube inverted pyramid face shape where ur standing when u run a command.
+    - run the same command again standing  at a different location to set the next face. the top faces should never be copied, they should stay where they are
+    - this means i cant just do the full cube rotation to set the other sides.
+    - i also need to make the copying happen over time so it doesn't crash
+
+
+    Todo:
+    - first, create new command to set the place under you a face.
+    - find out how to past over time
+
+    - make sure the chunks stay loaded
+
+    -algorithm:
+
+     */
     private CubeWorld cube;
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+
+
         if (cmd.getName().equalsIgnoreCase("copypaste")) {
 
             if (sender.hasPermission("copypaste.use")) {
@@ -42,10 +70,11 @@ public class CubicWorlds extends JavaPlugin implements Listener {
 
                 cube = new CubeWorld(p.getLocation(),dest,radius);
 //                new CubePermutation(p.getLocation(),dest,radius,);
+                getServer().getPluginManager().registerEvents(this, this);
             }
         } else if (cmd.getName().equalsIgnoreCase("changeEdge")) {
             Player p = (Player) sender;
-            cube.teleportToClosestFace(p);
+            cube.teleportToClosestFace(p, this);
         } else if (cmd.getName().equalsIgnoreCase("back")) {
             Player p = (Player) sender;
             cube.undoFaceSwitch(p);
@@ -57,63 +86,35 @@ public class CubicWorlds extends JavaPlugin implements Listener {
         return true;
     }
 
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        // Check if the player clicked on an item
+        if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            ItemStack item = event.getItem();
+            if (event.getPlayer().isOp()) {
+                if (item != null && item.getType() == Material.DIAMOND_SWORD) {
+
+
+
+
+
+                }
+            }
+        }
+    }
+
     //check every half second instead of every tick
     // get the face center ur closer to, if it changes, find the rotation necessary from the current face center to the next face,
     // and then tp to your coordinates translated to that permutation and rotate by that angle
-/*
+//
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
         if (cube == null) return;
 
-        Player player = event.getPlayer();
-        UUID playerId = player.getUniqueId();
-
-        int currentFace = playerCurrentFace.getOrDefault(playerId, 0);
-
-        Location CurrentFacePosXEdge = cube.getFacePosXEdgeCoord(currentFace);
-        Location NextFaceNegXEdge = cube.getFacePosXEdgeCoord(currentFace + 1); //need to change later
+        cube.teleportToClosestFace(event.getPlayer(), this);
 
 
-        if (player.getLocation().getBlockX() > CurrentFacePosXEdge.getBlockX()) {
-            // Get the player's last move time
-            long lastMoveTime = playerLastMoveTime.getOrDefault(playerId, (long) -1);
-            playerLastMoveTime.put(playerId, System.currentTimeMillis());
-
-            if (lastMoveTime == -1) {
-                return;
-            }
-
-            long timeElapsed = System.currentTimeMillis() - lastMoveTime;
-
-            playerLastMoveTime.remove(playerId);
-
-            double xVelocity = (event.getTo().getX() - event.getFrom().getX()) / (timeElapsed / 1000.0);
-
-            Location loc = player.getLocation();
-            Vector direction = loc.getDirection();
-
-            float xAngle = (float) Math.toDegrees(Math.atan2(-direction.getY(), Math.sqrt(direction.getX() * direction.getX() + direction.getZ() * direction.getZ())));
-            float rotated = xAngle - 90;
-
-            int level = calculateLevitationLevel(xVelocity);
-            player.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, calculateLevitationTimeTicks(2, level), level));
-
-
-            loc.setPitch(rotated);
-            double x = NextFaceNegXEdge.getBlockX() - (loc.getY() - (CurrentFacePosXEdge.getBlockY())) + (2-1.62);
-
-            loc.setY(CurrentFacePosXEdge.getBlockY() - (CurrentFacePosXEdge.getBlockX() - loc.getX()) - 0.62);
-            loc.setX(x);
-
-            double zValRelativeToCurrentFace = loc.getZ() - CurrentFacePosXEdge.getBlockZ();
-            loc.setZ(NextFaceNegXEdge.getBlockZ() + zValRelativeToCurrentFace);
-
-
-            player.teleport(loc);
-//            playerCurrentFace.put(playerId, currentFace + 1);
-
-        }
-    }*/
+    }
 
     private static int calculateLevitationLevel(double horizontalSpeed) {
         if (horizontalSpeed == 0)
@@ -131,7 +132,11 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     @Override
     public void onEnable() {
         getServer().getPluginManager().registerEvents(this, this);
+//        getServer().createWorld(new WorldCreator("myWorld").generator(new ChunkGen()));
 
+        WorldCreator worldCreator = new WorldCreator("air_world");
+        worldCreator.generator(new ChunkGen());
+        World world = worldCreator.createWorld();
     }
 
 

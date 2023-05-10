@@ -3,12 +3,20 @@ package me.zootsuitproductions.cubicworlds;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.joml.Vector3d;
+
+import static me.zootsuitproductions.cubicworlds.CubeRotation.convertYawPitchToVector;
 
 public class CubeWorld {
   Map<UUID, CubeRotation> currentPermutationOfPlayer = new HashMap<>();
+  Map<UUID, Boolean> playerIsReadyToTeleport = new HashMap<>();
   Map<UUID, CubeRotation> previousPermutationOfPlayer = new HashMap<>();
   public static AxisTransformation[] transformations = new AxisTransformation[] {
       AxisTransformation.TOP,
@@ -54,7 +62,7 @@ public class CubeWorld {
   }
 
   public void undoFaceSwitch(Player p) {
-    p.teleport(previousLoc);
+    p.teleport(previousLoc.subtract(0,1.62,0));
     currentPermutationOfPlayer.put(p.getUniqueId(), previousPermutationOfPlayer.get(p.getUniqueId()));
   }
 
@@ -63,27 +71,51 @@ public class CubeWorld {
   //postives work
 
   Location previousLoc;
-  public void teleportToClosestFace(Player player) {
+
+  public void startTimerTillPlayerCanChangeFacesAgain(UUID playerID, Plugin plugin) {
+    // Run the task after a 10-second delay and repeat every 20 ticks (1 second)
+
+    new BukkitRunnable() {
+      @Override
+      public void run() {
+        playerIsReadyToTeleport.put(playerID, true);
+        cancel();
+
+      }
+    }.runTaskTimer(plugin, 20, 20);
+  }
+
+  public void teleportToClosestFace(Player player, Plugin plugin) {
+    UUID uuid = player.getUniqueId();
+
+
+
     Location loc = player.getLocation();
     previousLoc = loc;
 
+
     Location eyeLocation = loc.add(0,1.62,0);
 
-    CubeRotation currentRot = currentPermutationOfPlayer.getOrDefault(player.getUniqueId(), cubeRotations[0]);
+    CubeRotation currentRot = currentPermutationOfPlayer.getOrDefault(uuid, cubeRotations[0]);
 
     Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(eyeLocation);
-
-    player.sendMessage(cubeWorldCoordinateOfPlayer.toString());
-    System.out.println("Cube world Coordinate!!!: " + cubeWorldCoordinateOfPlayer);
-    //get eye position
-//    cubeWorldCoordinateOfPlayer = cubeWorldCoordinateOfPlayer.add(0, 1.62, 0);
     CubeRotation closestFace = findClosestCubeRotationToCoordinate(cubeWorldCoordinateOfPlayer);
 
+    if (closestFace == currentRot) return;
+
+    if (playerIsReadyToTeleport.getOrDefault(uuid, true)) {
+      playerIsReadyToTeleport.put(uuid, false);
+      startTimerTillPlayerCanChangeFacesAgain(uuid, plugin);
+    } else {
+      return;
+    }
 
 
 
     Vector3d localCoordOnClosestFace = closestFace.getLocalCoordinateFromWorldCoordinate(cubeWorldCoordinateOfPlayer);
 
+
+    player.sendMessage("local coord eye on new cube: " + cubeWorldCoordinateOfPlayer.toString());
     //subtract so the player's new viewport will align
     localCoordOnClosestFace = localCoordOnClosestFace.sub(0, 1.62, 0);
 
@@ -91,6 +123,10 @@ public class CubeWorld {
     Location actualWorldLocationToTeleportTo = closestFace.getLocationFromRelativeCoordinate(localCoordOnClosestFace);
 
     float newYaw = closestFace.convertYawFromOtherCubeRotation(loc.getYaw(), currentRot);
+
+
+    CubeRotation.setPlayerLookDirectionToVector(player, convertYawPitchToVector(loc.getYaw(),loc.getPitch()));
+
     actualWorldLocationToTeleportTo.setYaw(newYaw);
 
     //this wont work if you dig straight down to switch1!!!!
@@ -100,13 +136,12 @@ public class CubeWorld {
     actualWorldLocationToTeleportTo.setPitch(loc.getPitch() - 90f);
 
     player.teleport(actualWorldLocationToTeleportTo);
+    player.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION,20, 2));
 
 
       //CHANGE THIS:::
       previousPermutationOfPlayer.put(player.getUniqueId(), currentRot);
       currentPermutationOfPlayer.put(player.getUniqueId(), closestFace);
-
-
   }
 
   private CubeRotation findClosestCubeRotationToCoordinate(Vector3d coordinate) {

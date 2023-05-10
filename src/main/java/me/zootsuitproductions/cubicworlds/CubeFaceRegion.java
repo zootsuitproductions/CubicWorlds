@@ -40,12 +40,16 @@ public class CubeFaceRegion {
 
     if (copyBlock.getType() == Material.GRASS_BLOCK) {
       //for everything except the top face, replace grass blocks with moss
-      if (!transformation.equals(AxisTransformation.TOP)) {
+//      if (!transformation.equals(AxisTransformation.TOP)) {
         pasteBlock.setType(Material.MOSS_BLOCK);
         sidewaysBlocks.put(pasteBlock.getLocation(), copyBlock);
         return;
-      }
+//      }
     }
+
+    //add a live set up phase where the admin can set how high each side is on the world. use block commands to do it
+
+
     pasteBlock.setBlockData(TransformationUtils.rotateBlockData(blockData, transformation));
   }
 
