@@ -1,5 +1,7 @@
 package me.zootsuitproductions.cubicworlds;
 
+import java.text.DecimalFormat;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
@@ -116,17 +118,69 @@ public class CubeRotation {
     double y = -Math.sin(pitchRadian);
     double z = Math.cos(yawRadian);
 
+    // Calculate the magnitude (length) of the vector
+    double magnitude = Math.sqrt(x * x + y * y + z * z);
+
+    // Normalize the vector by dividing each component by the magnitude
+    x /= magnitude;
+    y /= magnitude;
+    z /= magnitude;
+
     return new Vector3d(x, y, z);
   }
 
-  public static void setPlayerLookDirectionToVector(Player player, Vector3d vector3d) {
-    float yawRadian = (float) -Math.asin(vector3d.x);
-    float yawRadian1 = (float) Math.acos(vector3d.z);
-    player.sendMessage("radx" + yawRadian);
-    player.sendMessage("radz" + yawRadian1);
+  //move these to utils class
+
+  public static Location setLookDirectionToVector(Location location, Vector3d vector3d) {
+    float yaw = (float) Math.toDegrees(Math.atan2(-vector3d.x, vector3d.z));
+    float pitch = (float) Math.toDegrees(Math.asin(-vector3d.y));
+
+    location.setYaw(yaw);
+    location.setPitch(pitch);
+    return location;
+  }
+
+  public static void debug(String string, Vector3d vector3d) {
+    float yaw = (float) Math.toDegrees(Math.atan2(-vector3d.x, vector3d.z));
+    float pitch = (float) Math.toDegrees(Math.asin(-vector3d.y));
+    System.out.println(string + ": yaw " + yaw + ", pitch " + pitch);
+  }
+
+  public static float getYaw(Vector3d vector3d) {
+    return (float) Math.toDegrees(Math.atan2(-vector3d.x, vector3d.z));
+  }
+
+  public static float getPitch(Vector3d vector3d) {
+    return (float) (float) Math.toDegrees(Math.asin(-vector3d.y));
+  }
+
+  public Vector3d convertLookingVectorFromOtherCubeRotation(Vector3d lookDirectionOnOther, CubeRotation other) {
 
 
-    //degreews
+    System.out.println("helloIN FUNC");
+
+    System.out.println("currentWorld vector : " + lookDirectionOnOther);
+    Vector3d mainCubeWorldLookDirection = other.axisTransformation.unapply(lookDirectionOnOther);
+
+    float y = getYaw(lookDirectionOnOther);
+    float y1 =  getYaw(lookDirectionOnOther);
+    float y3 =  getPitch(lookDirectionOnOther);
+    float y4 = getPitch(lookDirectionOnOther);
+
+    float y5 = getYaw(mainCubeWorldLookDirection);
+    float y6 = getYaw(mainCubeWorldLookDirection);
+    float ya = getPitch(mainCubeWorldLookDirection);
+
+    System.out.println("main world vector: " + mainCubeWorldLookDirection);
+    Vector3d newWorldLookDirection = axisTransformation.apply(mainCubeWorldLookDirection);
+
+    float y33= getYaw(newWorldLookDirection);
+    float ay = getYaw(newWorldLookDirection);
+    float y1a = getPitch(newWorldLookDirection);
+
+    System.out.println("new!! world vector: " + newWorldLookDirection);
+
+    return newWorldLookDirection;
   }
 
   public float convertYawFromOtherCubeRotation(float yaw, CubeRotation other) {

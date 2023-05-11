@@ -4,13 +4,19 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import org.bukkit.Chunk;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
 import org.joml.Vector3d;
+import org.joml.sampling.BestCandidateSampling.Cube;
 
 import static me.zootsuitproductions.cubicworlds.CubeRotation.convertYawPitchToVector;
 
@@ -30,9 +36,11 @@ public class CubeWorld {
   Vector3d[] faceCenters = new Vector3d[6];
   CubeRotation[] cubeRotations = new CubeRotation[6];
 
-  public CubeWorld(Location center, Location pasteCenter, int radius) {
+  private final int radius;
 
-    int spaceBetweenCubeRotationsInWorld = radius*5;
+  public CubeWorld(Location center, Location pasteCenter, int radius) {
+    this.radius = radius;
+    int spaceBetweenCubeRotationsInWorld = radius*5 + 30;
 
     faceCenters[0] = new Vector3d(0, radius,0);
 //    faceCenters[1] = new Vector3d(radius, 0,0);
@@ -85,14 +93,134 @@ public class CubeWorld {
     }.runTaskTimer(plugin, 20, 20);
   }
 
-  public void teleportToClosestFace(Player player, Plugin plugin) {
+  public static void loadChunkRadius(Location loc, int radius) {
+    Chunk centerChunk = loc.getChunk();
+    int centerX = centerChunk.getX();
+    int centerZ = centerChunk.getZ();
+    for (int x = centerX - radius; x <= centerX + radius; x++) {
+      for (int z = centerZ - radius; z <= centerZ + radius; z++) {
+        loc.getWorld().loadChunk(x, z);
+      }
+    }
+  }
+
+
+  public void rotTimer(Player p, Plugin plugin, float rotateToThisYaw, Location rotatedLocation, CubeRotation currentRot, CubeRotation closestFace) {
+
+//    loadChunkRadius(rotatedLocation, 2);
+
+//    GameMode currentMode = p.getGameMode();
+//    p.setGameMode(GameMode.SPECTATOR);
+
+    //create an invisible armor stand and have player spectate it
+//    ArmorStand a = (ArmorStand) p.getWorld().spawnEntity(pLoc, EntityType.ARMOR_STAND);
+//    a.setGravity(false);
+//    a.setVisible(false);
+//    p.setSpectatorTarget(a);
+
+    int ticksToRotateOver = 20;
+
+    float degreeDifference = (rotateToThisYaw - p.getLocation().getYaw());
+    if (degreeDifference > 180) {
+      degreeDifference = 360 - degreeDifference;
+    } else if (degreeDifference < -180) {
+      degreeDifference = 360 + degreeDifference;
+    }
+
+    float degreesToRotatePerTick = degreeDifference / ticksToRotateOver;
+
+    p.sendMessage("currentYaw: " + p.getLocation().getYaw());
+    p.sendMessage("rotateToThisyaw: " + rotateToThisYaw);
+    p.sendMessage("degreeDifference: " + degreeDifference);
+
+
+    new BukkitRunnable() {
+
+      int counter = 0;
+      @Override
+      public void run() {
+        Location pLoc = p.getLocation();
+
+        if (counter == ticksToRotateOver) {
+//          p.setGameMode(currentMode);
+//          a.remove();
+
+          p.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION,20, 2));
+
+          previousPermutationOfPlayer.put(p.getUniqueId(), currentRot);
+          currentPermutationOfPlayer.put(p.getUniqueId(), closestFace);
+
+          startTimerTillPlayerCanChangeFacesAgain(p.getUniqueId(), plugin);
+          cancel();
+          return;
+        }
+
+//        Location aLoc = a.getLocation();
+
+        pLoc.setYaw(pLoc.getYaw() + degreesToRotatePerTick);
+
+        //can update this dynamically to compensate for mouse movement
+
+        //make it a natural movement
+
+        p.sendMessage("rot " + counter + ": " + pLoc.getYaw());
+        p.sendMessage("deg per Tick: " + degreesToRotatePerTick);
+
+        p.teleport(pLoc);
+
+        if (counter == ticksToRotateOver - 1) {
+          Location rotatedLocation = getMinecraftWorldLocationOnOtherCube(currentRot, closestFace, p.getLocation());
+
+          p.teleport(rotatedLocation);
+        }
+
+        counter ++;
+      }
+    }.runTaskTimer(plugin, 0, 1);
+  }
+
+  private float getYawForSeamlessSwitch(CubeRotation currentCube, CubeRotation cubeToTeleportTo) {
+    Vector3d faceVectorOfFaceAboutToSwitchTo = currentCube.axisTransformation.apply(
+        cubeToTeleportTo.topFaceCoordinateOnMainWorld);
+    return CubeRotation.getYawFromAxisDirectionFacing(faceVectorOfFaceAboutToSwitchTo.div(radius));
+  }
+
+  private Location getMinecraftWorldLocationOnOtherCube(CubeRotation currentCube, CubeRotation cubeToTeleportTo, Location playerLoc) {
+    Location eyeLocation = playerLoc.add(0,1.62,0);
+    Vector3d cubeWorldCoordinateOfPlayerEyes = currentCube.getCubeWorldCoordinate(eyeLocation);
+
+    Vector3d localCoordOnClosestFace = cubeToTeleportTo.getLocalCoordinateFromWorldCoordinate(cubeWorldCoordinateOfPlayerEyes);
+    localCoordOnClosestFace = localCoordOnClosestFace.sub(0, 1.62, 0);
+    Location actualWorldLocationToTeleportTo = cubeToTeleportTo.getLocationFromRelativeCoordinate(localCoordOnClosestFace);
+
+    float newYaw = cubeToTeleportTo.convertYawFromOtherCubeRotation(eyeLocation.getYaw(), currentCube);
+    actualWorldLocationToTeleportTo.setYaw(newYaw);
+
+    //if player looking towards axis do this
+    actualWorldLocationToTeleportTo.setPitch(eyeLocation.getPitch() - 90f);
+
+    return actualWorldLocationToTeleportTo;
+
+  }
+
+  public boolean shouldPlayerBeTeleportedToNewFace(Player player) {
+    Location loc = player.getLocation();
+
+    Location eyeLocation = loc.add(0,1.62,0);
+
+    CubeRotation currentRot = currentPermutationOfPlayer.getOrDefault(player.getUniqueId(), cubeRotations[0]);
+
+    Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(eyeLocation);
+    CubeRotation closestFace = findClosestCubeRotationToCoordinate(cubeWorldCoordinateOfPlayer);
+
+    return (closestFace != currentRot);
+  }
+
+  public boolean teleportToClosestFace(Player player, Plugin plugin) {
     UUID uuid = player.getUniqueId();
-
-
 
     Location loc = player.getLocation();
     previousLoc = loc;
-
 
     Location eyeLocation = loc.add(0,1.62,0);
 
@@ -101,47 +229,19 @@ public class CubeWorld {
     Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(eyeLocation);
     CubeRotation closestFace = findClosestCubeRotationToCoordinate(cubeWorldCoordinateOfPlayer);
 
-    if (closestFace == currentRot) return;
+    if (closestFace == currentRot) return false;
 
-    if (playerIsReadyToTeleport.getOrDefault(uuid, true)) {
-      playerIsReadyToTeleport.put(uuid, false);
-      startTimerTillPlayerCanChangeFacesAgain(uuid, plugin);
-    } else {
-      return;
-    }
+    //player will be teleported now, so disable until done teleporting
+    playerIsReadyToTeleport.put(uuid, false);
 
+    Location actualWorldLocationToTeleportTo = getMinecraftWorldLocationOnOtherCube(currentRot, closestFace, loc);
 
+    float desiredYawForSeamlessSwitch = getYawForSeamlessSwitch(currentRot, closestFace);
 
-    Vector3d localCoordOnClosestFace = closestFace.getLocalCoordinateFromWorldCoordinate(cubeWorldCoordinateOfPlayer);
+    rotTimer(player, plugin, desiredYawForSeamlessSwitch, actualWorldLocationToTeleportTo, currentRot, closestFace);
 
+    return true;
 
-    player.sendMessage("local coord eye on new cube: " + cubeWorldCoordinateOfPlayer.toString());
-    //subtract so the player's new viewport will align
-    localCoordOnClosestFace = localCoordOnClosestFace.sub(0, 1.62, 0);
-
-
-    Location actualWorldLocationToTeleportTo = closestFace.getLocationFromRelativeCoordinate(localCoordOnClosestFace);
-
-    float newYaw = closestFace.convertYawFromOtherCubeRotation(loc.getYaw(), currentRot);
-
-
-    CubeRotation.setPlayerLookDirectionToVector(player, convertYawPitchToVector(loc.getYaw(),loc.getPitch()));
-
-    actualWorldLocationToTeleportTo.setYaw(newYaw);
-
-    //this wont work if you dig straight down to switch1!!!!
-    //!!!
-
-    //rotate the sun too!!!
-    actualWorldLocationToTeleportTo.setPitch(loc.getPitch() - 90f);
-
-    player.teleport(actualWorldLocationToTeleportTo);
-    player.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION,20, 2));
-
-
-      //CHANGE THIS:::
-      previousPermutationOfPlayer.put(player.getUniqueId(), currentRot);
-      currentPermutationOfPlayer.put(player.getUniqueId(), closestFace);
   }
 
   private CubeRotation findClosestCubeRotationToCoordinate(Vector3d coordinate) {
