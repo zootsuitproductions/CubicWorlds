@@ -5,80 +5,37 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.bukkit.Chunk;
-import org.bukkit.GameMode;
 import org.bukkit.Location;
-import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 import org.joml.Vector3d;
-import org.joml.sampling.BestCandidateSampling.Cube;
-
-import static me.zootsuitproductions.cubicworlds.CubeRotation.convertYawPitchToVector;
 
 public class CubeWorld {
-  Map<UUID, CubeRotation> currentPermutationOfPlayer = new HashMap<>();
-  Map<UUID, Boolean> playerIsReadyToTeleport = new HashMap<>();
-  Map<UUID, CubeRotation> previousPermutationOfPlayer = new HashMap<>();
-  public static AxisTransformation[] transformations = new AxisTransformation[] {
-      AxisTransformation.TOP,
-      AxisTransformation.FRONT,
-      AxisTransformation.BOTTOM,
-      AxisTransformation.BACK,
-      AxisTransformation.LEFT,
-      AxisTransformation.RIGHT
-  };
-
-  Vector3d[] faceCenters = new Vector3d[6];
-  CubeRotation[] cubeRotations = new CubeRotation[6];
-
   private final int radius;
+  Map<UUID, WorldPermutation> currentPermutationOfPlayer = new HashMap<>();
+  Map<UUID, Boolean> playerIsReadyToTeleport = new HashMap<>();
+  Vector3d[] cubeFaceCenters = new Vector3d[6];
+  WorldPermutation[] worldPermutations = new WorldPermutation[6];
 
   public CubeWorld(Location center, Location pasteCenter, int radius) {
     this.radius = radius;
     int spaceBetweenCubeRotationsInWorld = radius*5 + 30;
 
-    faceCenters[0] = new Vector3d(0, radius,0);
-//    faceCenters[1] = new Vector3d(radius, 0,0);
-//    faceCenters[2] = new Vector3d(0, -radius,0);
-//    faceCenters[3] = new Vector3d(-radius, 0,0);
-//    faceCenters[4] = new Vector3d(0, 0, -radius);
-//    faceCenters[5] = new Vector3d(0, 0, radius);
+    cubeFaceCenters[0] = new Vector3d(0, radius,0);
+    worldPermutations[0] = new WorldPermutation(center, pasteCenter, radius, AxisTransformation.TOP, cubeFaceCenters[0]);
 
-    cubeRotations[0] = new CubeRotation(center, pasteCenter, radius, AxisTransformation.TOP, faceCenters[0]);
+    for (int i = 1; i < AxisTransformation.transformations.length; i++) {
+      cubeFaceCenters[i] = AxisTransformation.transformations[i].unapply(cubeFaceCenters[0]);
 
-    System.out.println(faceCenters[0]);
-
-    for (int i = 1; i < transformations.length; i++) {
-      faceCenters[i] = transformations[i].unapply(faceCenters[0]);
-      System.out.println("face index: " + i);
-
-      //look at this
-
-      System.out.println(faceCenters[i]);
-
-      cubeRotations[i] = new CubeRotation(
-          cubeRotations[0],
-          CubeRotation.translateLocation(pasteCenter, i * spaceBetweenCubeRotationsInWorld,0,0),
-          transformations[i],
-          faceCenters[i]);
+      worldPermutations[i] = new WorldPermutation(
+          worldPermutations[0],
+          WorldPermutation.translateLocation(pasteCenter, i * spaceBetweenCubeRotationsInWorld,0,0),
+          AxisTransformation.transformations[i],
+          cubeFaceCenters[i]);
     }
   }
-
-  public void undoFaceSwitch(Player p) {
-    p.teleport(previousLoc.subtract(0,1.62,0));
-    currentPermutationOfPlayer.put(p.getUniqueId(), previousPermutationOfPlayer.get(p.getUniqueId()));
-  }
-
-  //NEGATIVE Z is off
-  //and negative x
-  //postives work
-
-  Location previousLoc;
 
   public void startTimerTillPlayerCanChangeFacesAgain(UUID playerID, Plugin plugin) {
     // Run the task after a 10-second delay and repeat every 20 ticks (1 second)
@@ -104,8 +61,13 @@ public class CubeWorld {
     }
   }
 
+//  private void acc
 
-  public void rotTimer(Player p, Plugin plugin, float rotateToThisYaw, Location rotatedLocation, CubeRotation currentRot, CubeRotation closestFace) {
+  public void rotTimer(Player p, Vector velocity, Plugin plugin, float rotateToThisYaw, Location rotatedLocation, WorldPermutation currentRot, WorldPermutation closestFace) {
+
+    //do head rotation in movement event!!!!
+    //change thje loookm direction if falling
+    
 
 //    loadChunkRadius(rotatedLocation, 2);
 
@@ -118,7 +80,7 @@ public class CubeWorld {
 //    a.setVisible(false);
 //    p.setSpectatorTarget(a);
 
-    int ticksToRotateOver = 20;
+    int ticksToRotateOver = 5;
 
     float degreeDifference = (rotateToThisYaw - p.getLocation().getYaw());
     if (degreeDifference > 180) {
@@ -144,10 +106,6 @@ public class CubeWorld {
         if (counter == ticksToRotateOver) {
 //          p.setGameMode(currentMode);
 //          a.remove();
-
-          p.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION,20, 2));
-
-          previousPermutationOfPlayer.put(p.getUniqueId(), currentRot);
           currentPermutationOfPlayer.put(p.getUniqueId(), closestFace);
 
           startTimerTillPlayerCanChangeFacesAgain(p.getUniqueId(), plugin);
@@ -157,19 +115,19 @@ public class CubeWorld {
 
 //        Location aLoc = a.getLocation();
 
-        pLoc.setYaw(pLoc.getYaw() + degreesToRotatePerTick);
+//        pLoc.setYaw(pLoc.getYaw() + degreesToRotatePerTick);
 
         //can update this dynamically to compensate for mouse movement
 
         //make it a natural movement
 
-        p.sendMessage("rot " + counter + ": " + pLoc.getYaw());
-        p.sendMessage("deg per Tick: " + degreesToRotatePerTick);
-
-        p.teleport(pLoc);
+//        p.sendMessage("rot " + counter + ": " + pLoc.getYaw());
+//        p.sendMessage("deg per Tick: " + degreesToRotatePerTick);
+//        p.teleport(pLoc);
 
         if (counter == ticksToRotateOver - 1) {
           Location rotatedLocation = getMinecraftWorldLocationOnOtherCube(currentRot, closestFace, p.getLocation());
+//          p.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION,20, 2));
 
           p.teleport(rotatedLocation);
         }
@@ -179,13 +137,14 @@ public class CubeWorld {
     }.runTaskTimer(plugin, 0, 1);
   }
 
-  private float getYawForSeamlessSwitch(CubeRotation currentCube, CubeRotation cubeToTeleportTo) {
+  private float getYawForSeamlessSwitch(
+      WorldPermutation currentCube, WorldPermutation cubeToTeleportTo) {
     Vector3d faceVectorOfFaceAboutToSwitchTo = currentCube.axisTransformation.apply(
         cubeToTeleportTo.topFaceCoordinateOnMainWorld);
-    return CubeRotation.getYawFromAxisDirectionFacing(faceVectorOfFaceAboutToSwitchTo.div(radius));
+    return WorldPermutation.getYawFromAxisDirectionFacing(faceVectorOfFaceAboutToSwitchTo.div(radius));
   }
 
-  private Location getMinecraftWorldLocationOnOtherCube(CubeRotation currentCube, CubeRotation cubeToTeleportTo, Location playerLoc) {
+  private Location getMinecraftWorldLocationOnOtherCube(WorldPermutation currentCube, WorldPermutation cubeToTeleportTo, Location playerLoc) {
     Location eyeLocation = playerLoc.add(0,1.62,0);
     Vector3d cubeWorldCoordinateOfPlayerEyes = currentCube.getCubeWorldCoordinate(eyeLocation);
 
@@ -208,26 +167,25 @@ public class CubeWorld {
 
     Location eyeLocation = loc.add(0,1.62,0);
 
-    CubeRotation currentRot = currentPermutationOfPlayer.getOrDefault(player.getUniqueId(), cubeRotations[0]);
+    WorldPermutation currentRot = currentPermutationOfPlayer.getOrDefault(player.getUniqueId(), worldPermutations[0]);
 
     Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(eyeLocation);
-    CubeRotation closestFace = findClosestCubeRotationToCoordinate(cubeWorldCoordinateOfPlayer);
+    WorldPermutation closestFace = findClosestCubeRotationToCoordinate(cubeWorldCoordinateOfPlayer);
 
     return (closestFace != currentRot);
   }
 
-  public boolean teleportToClosestFace(Player player, Plugin plugin) {
+  public boolean teleportToClosestFace(Player player, Vector velocity, Plugin plugin) {
     UUID uuid = player.getUniqueId();
 
     Location loc = player.getLocation();
-    previousLoc = loc;
 
     Location eyeLocation = loc.add(0,1.62,0);
 
-    CubeRotation currentRot = currentPermutationOfPlayer.getOrDefault(uuid, cubeRotations[0]);
+    WorldPermutation currentRot = currentPermutationOfPlayer.getOrDefault(uuid, worldPermutations[0]);
 
     Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(eyeLocation);
-    CubeRotation closestFace = findClosestCubeRotationToCoordinate(cubeWorldCoordinateOfPlayer);
+    WorldPermutation closestFace = findClosestCubeRotationToCoordinate(cubeWorldCoordinateOfPlayer);
 
     if (closestFace == currentRot) return false;
 
@@ -238,182 +196,24 @@ public class CubeWorld {
 
     float desiredYawForSeamlessSwitch = getYawForSeamlessSwitch(currentRot, closestFace);
 
-    rotTimer(player, plugin, desiredYawForSeamlessSwitch, actualWorldLocationToTeleportTo, currentRot, closestFace);
+    rotTimer(player, velocity, plugin, desiredYawForSeamlessSwitch, actualWorldLocationToTeleportTo, currentRot, closestFace);
 
     return true;
 
   }
 
-  private CubeRotation findClosestCubeRotationToCoordinate(Vector3d coordinate) {
+  private WorldPermutation findClosestCubeRotationToCoordinate(Vector3d coordinate) {
     int closestFaceIndex = 0;
-    double closestDistance = coordinate.distance(faceCenters[0]);
+    double closestDistance = coordinate.distance(cubeFaceCenters[0]);
 
-    for (int i = 1; i < faceCenters.length; i++) {
-      double distance = coordinate.distance(faceCenters[i]);
+    for (int i = 1; i < cubeFaceCenters.length; i++) {
+      double distance = coordinate.distance(cubeFaceCenters[i]);
       if (distance < closestDistance) {
         closestDistance = distance;
         closestFaceIndex = i;
       }
     }
-    return cubeRotations[closestFaceIndex];
+    return worldPermutations[closestFaceIndex];
   }
 
- /* private CubePermutation[] worldPermutations = new CubePermutation[6];
-  private int radius;
-
-  public CubeWorld(Location face1PosXEdgeCenter, Location pasteCenter, int faceRadius) {
-    radius = faceRadius;
-    createCubeWorldFromEdge(face1PosXEdgeCenter, pasteCenter);
-
-    Location permutation1Location = new Location(pasteCenter.getWorld(), pasteCenter.getBlockX(), pasteCenter.getBlockY(), pasteCenter.getBlockZ() + 3 * faceRadius);
-    createFirstRotationWorld(face1PosXEdgeCenter, permutation1Location);
-  }
-
-  public int GetCurrentFaceOfPlayer(Player player) {
-    for (int i = 0; i < worldPermutations.length; i++) {
-      if (worldPermutations[i].PlayerIsOnFace(player)) {
-        return i;
-      }
-    }
-
-    return -1;
-  }
-
-  public Location getFacePosXEdgeCoord(int face) {
-    return worldPermutations[face].getPosXEdgeCoord();
-  }
-
-  public Location getFaceNegXEdgeCoord(int face) {
-    return worldPermutations[face].getNegXEdgeCoord();
-  }
-
-  public int getRadius() {
-    return radius;
-  }
-
-  private void createFirstRotationWorld(Location edgeCenter, Location pasteCenter) {
-    int lowestGroundYValue = findLowestPointOnXSlice(edgeCenter);
-
-    Location uprightFaceCenter = new Location(edgeCenter.getWorld(), edgeCenter.getBlockX() + radius,
-        lowestGroundYValue, edgeCenter.getZ());
-
-    Location cube2Center = new Location(edgeCenter.getWorld(), edgeCenter.getBlockX() - radius,
-        lowestGroundYValue, edgeCenter.getZ());
-
-
-
-    Location pastedFace1Center = new Location(pasteCenter.getWorld(),
-
-        pasteCenter.getBlockX(),
-        pasteCenter.getBlockY() + radius,
-        pasteCenter.getZ());
-
-    Location face2Center = new Location(pasteCenter.getWorld(),
-
-        pasteCenter.getBlockX() - radius,
-        pasteCenter.getBlockY(),
-        pasteCenter.getZ());
-
-    copyAndPasteRegion(cube2Center, face2Center, -90);
-    copyAndPasteRegion(uprightFaceCenter, pastedFace1Center, 0);
-
-
-
-    worldPermutations[1] = new CubePermutation(pasteCenter, radius, 1);
-
-  }
-
-  private void createCubeWorldFromEdge(Location edgeCenter, Location pasteCenter) {
-    int lowestGroundYValue = findLowestPointOnXSlice(edgeCenter);
-
-    Location cube1Center = new Location(edgeCenter.getWorld(), edgeCenter.getBlockX() - radius,
-        lowestGroundYValue, edgeCenter.getZ());
-
-    Location cube2Center = new Location(edgeCenter.getWorld(), edgeCenter.getBlockX() + radius,
-        lowestGroundYValue, edgeCenter.getZ());
-
-
-    Location face1Center = new Location(pasteCenter.getWorld(),
-
-        pasteCenter.getBlockX(),
-        pasteCenter.getBlockY() + radius,
-        pasteCenter.getZ());
-
-    Location face2Center = new Location(pasteCenter.getWorld(),
-
-        pasteCenter.getBlockX() + radius,
-        pasteCenter.getBlockY(),
-        pasteCenter.getZ());
-
-    copyAndPasteRegion(cube1Center, face1Center, 0);
-    copyAndPasteRegion(cube2Center, face2Center, 90);
-
-
-    worldPermutations[0] = new CubePermutation(pasteCenter, radius, 0);
-  }
-
-  private int findLowestPointOnXSlice(Location playerPositionOnSlice) {
-    int x = playerPositionOnSlice.getBlockX();
-    int zCenter = playerPositionOnSlice.getBlockZ();
-
-    int lowestPoint = playerPositionOnSlice.getBlockY() - 1; //subtract height of player viewpoint
-
-    for (int z = zCenter - radius; z <= zCenter + radius; z++) {
-      for (int y = lowestPoint; y > 40; y--) {
-        Block block = new Location(playerPositionOnSlice.getWorld(), x, y, z).getBlock();
-        if (!block.getType().isAir()) {
-          lowestPoint = y;
-          break;
-        }
-      }
-    }
-    return lowestPoint;
-  }
-
-  private void copyAndPasteRegion(Location center, Location destination,
-      int rotationDeg) {
-
-    World world = center.getWorld();
-
-    int centerX = center.getBlockX();
-    int centerY = center.getBlockY();
-    int centerZ = center.getBlockZ();
-
-    int destX = destination.getBlockX();
-    int destY = destination.getBlockY();
-    int destZ = destination.getBlockZ();
-
-    for (int x = -radius; x <= radius; x++) {
-      for (int y = -radius; y <= radius; y++) {
-        for (int z = -radius; z <= radius; z++) {
-          Block originalBlock = new Location(world, centerX + x, centerY + y,
-              centerZ + z).getBlock();
-
-          int pastedX;
-          int pasteY;
-          if (rotationDeg == 90) {
-            pastedX = destX + y;
-            pasteY = destY - x;
-          } else if (rotationDeg == -90) {
-            pastedX = destX - y;
-            pasteY = destY + x;
-          } else {
-            pastedX = destX + x;
-            pasteY = destY + y;
-          }
-          Block pastedBlock = new Location(world, pastedX, pasteY, destZ + z).getBlock();
-
-          BlockData data = originalBlock.getBlockData();
-          if (data instanceof org.bukkit.material.Tree) {
-            org.bukkit.material.Tree treeData = (org.bukkit.material.Tree) data;
-            BlockFace face = treeData.getDirection();
-
-            //do stuff...
-            // Use the face variable to determine the direction the block is facing
-          }
-          pastedBlock.setBlockData(data);
-        }
-      }
-    }
-  }*/
 }

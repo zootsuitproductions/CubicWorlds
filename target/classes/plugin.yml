@@ -12,7 +12,7 @@ commands:
   changeedge:
     description: Copies and pastes a block selection
     usage: /copypaste <copy/paste>
-  back:
+  addFace:
     description: Copies and pastes a block selection
     usage: /copypaste <copy/paste>
   rot:

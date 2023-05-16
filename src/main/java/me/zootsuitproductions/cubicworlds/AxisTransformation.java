@@ -36,6 +36,15 @@ public class AxisTransformation {
     return false;
   }
 
+  public static final AxisTransformation[] transformations = new AxisTransformation[] {
+      AxisTransformation.TOP,
+      AxisTransformation.FRONT,
+      AxisTransformation.BOTTOM,
+      AxisTransformation.BACK,
+      AxisTransformation.LEFT,
+      AxisTransformation.RIGHT
+  };
+
   // Transformations for each of the cube faces
   public static final AxisTransformation TOP = new AxisTransformation(
       new double[]{
