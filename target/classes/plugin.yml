@@ -3,7 +3,7 @@ version: '1.0-SNAPSHOT'
 main: me.zootsuitproductions.cubicworlds.CubicWorlds
 api-version: 1.19
 commands:
-  copypaste:
+  createCubeWorld:
     description: Copies and pastes a block selection
     usage: /copypaste <copy/paste>
   slice:

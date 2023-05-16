@@ -30,6 +30,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.server.ServerLoadEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.World;
 import org.bukkit.Location;
@@ -145,7 +146,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     }, 0L, 1L);
   }
 
-  private static int clampValueToRange(int value, int min, int max) {
+  public static int clampValueToRange(int value, int min, int max) {
     if (value > max) {
       return max;
     } else if (value < min) {
@@ -248,45 +249,50 @@ public class CubicWorlds extends JavaPlugin implements Listener {
   }
 
   List<Location> faceLocations = new ArrayList<Location>();
+  private boolean creatingCubeWorld = false;
+  private int cubeWorldRadius;
 
   @Override
   public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 
-    if (cmd.getName().equalsIgnoreCase("copypaste")) {
+    if (cmd.getName().equalsIgnoreCase("createCubeWorld")) {
 
-      if (sender.hasPermission("copypaste.use")) {
-        Player p = (Player) sender;
-        int radius = Integer.parseInt(args[0]);
-        Location dest = new Location(p.getWorld(), p.getLocation().getBlockX(), 150,
-            p.getLocation().getBlockZ());
+      if (sender.hasPermission("createCubeWorld.use")) {
+        try {
+          cubeWorldRadius = Integer.parseInt(args[0]);
+        } catch (Exception e) {
+          sender.sendMessage("You must specify the radius of the cube world");
+          return true;
+        }
+        creatingCubeWorld = true;
+        faceLocations.clear();
 
-
-
-        cube = new CubeWorld(p.getLocation(), dest, radius);
-        saveCubeData();
+        sender.sendMessage("Go to 6 locations you want to use as the cube faces and do /addface");
 
       }
     } else if (cmd.getName().equalsIgnoreCase("changeEdge")) {
       Player p = (Player) sender;
 
-      new CopyAndRotateCubeFaceOperation(p.getLocation(), p.getLocation().clone().add(0,50,0),Integer.parseInt(args[0]),AxisTransformation.FRONT,Integer.parseInt(args[1]),this,null).apply();
-
-//            cube.teleportToClosestFace(p, this);
     } else if (cmd.getName().equalsIgnoreCase("addFace")) {
       Player p = (Player) sender;
 
       faceLocations.add(p.getLocation());
 
       if (faceLocations.size() >= 6) {
-        //create cube world
+        p.sendMessage("creating");
+        clearBlocksAroundCubeWorld(p.getLocation(), 200, cubeWorldRadius, cubeWorldRadius + 20);
+        new CubeWorld(faceLocations,cubeWorldRadius,this);
+//        new CopyAndRotateCubeFaceOperation(p.getLocation(), p.getLocation().clone().add(0,50,0),Integer.parseInt(args[0]),AxisTransformation.FRONT,Integer.parseInt(args[1]),this,null).apply();
       }
 
-      int radius = Integer.parseInt(args[0]);
-      int bpt = Integer.parseInt(args[1]);
+//      int radius = Integer.parseInt(args[0]);
+//      int bpt = Integer.parseInt(args[1]);
 
 
 
-      clearBlocksAroundCubeWorld(p.getLocation(), bpt, radius, radius + 3 * 16);
+//      clearBlocksAroundCubeWorld(p.getLocation(), bpt, radius, radius + 3 * 16);
+
+
 
       //save the locations of each of the faces.
       //and i cant just make 1 cube world and then rotate it. well

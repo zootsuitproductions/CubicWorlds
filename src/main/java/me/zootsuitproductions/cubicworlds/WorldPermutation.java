@@ -1,8 +1,11 @@
 package me.zootsuitproductions.cubicworlds;
 
+import java.util.List;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.plugin.Plugin;
 import org.joml.Vector3d;
 
 import java.util.HashMap;
@@ -14,8 +17,143 @@ public class WorldPermutation {
   public final Location center;
   private int radius;
   private final CubeFaceRegion[] faces = new CubeFaceRegion[6];
-  private final Location[] faceCenters = new Location[6];
+  private Location[] faceCenters;
   private Map<Location, Block> sidewaysBlocks = new HashMap<>();
+
+  private ISetBlocksOverTimeOperation createOperation;
+
+  private ISetBlocksOverTimeOperation clearBlocksAroundCubeWorld(Location center, int blocksPerTick, int cubeRadius,
+      int clearUntilRadius, Plugin plugin, ISetBlocksOverTimeOperation nextOperation) {
+    World world = center.getWorld();
+
+    int maxHeight = center.getWorld().getMaxHeight();
+    int minHeight = center.getWorld().getMinHeight();
+
+    int centerX = center.getBlockX();
+    int centerY = center.getBlockY();
+    int centerZ = center.getBlockZ();
+
+    ISetBlocksOverTimeOperation leftVoid = new SetBlocksOverTimeOperation(
+        new Location(
+            world,
+            centerX - clearUntilRadius,
+            minHeight,
+            centerZ - clearUntilRadius),
+        new Location(
+            world,
+            centerX - cubeRadius,
+            maxHeight,
+            centerZ + clearUntilRadius),
+        blocksPerTick, plugin, nextOperation);
+
+    ISetBlocksOverTimeOperation rightVoid = new SetBlocksOverTimeOperation(
+        new Location(
+            world,
+            centerX + cubeRadius,
+            minHeight,
+            centerZ - clearUntilRadius),
+        new Location(
+            world,
+            centerX + clearUntilRadius,
+            maxHeight,
+            centerZ + clearUntilRadius),
+        blocksPerTick,
+        plugin, leftVoid);
+
+    ISetBlocksOverTimeOperation frontVoid = new SetBlocksOverTimeOperation(
+        new Location(
+            world,
+            centerX - cubeRadius,
+            minHeight,
+            centerZ + cubeRadius),
+        new Location(
+            world,
+            centerX + cubeRadius,
+            maxHeight,
+            centerZ + clearUntilRadius),
+        blocksPerTick, plugin, rightVoid);
+
+    ISetBlocksOverTimeOperation backVoid = new SetBlocksOverTimeOperation(
+        new Location(
+            world,
+            centerX - cubeRadius,
+            minHeight,
+            centerZ - clearUntilRadius),
+        new Location(
+            world,
+            centerX + cubeRadius,
+            maxHeight,
+            centerZ - cubeRadius),
+        blocksPerTick, plugin, frontVoid);
+
+    ISetBlocksOverTimeOperation bottomVoid = new SetBlocksOverTimeOperation(
+        new Location(
+            world,
+            centerX - clearUntilRadius,
+            minHeight,
+            centerZ - clearUntilRadius),
+        new Location(
+            world,
+            centerX + clearUntilRadius,
+            CubicWorlds.clampValueToRange(centerY - 2 * cubeRadius, minHeight, maxHeight),
+            centerZ + clearUntilRadius),
+        blocksPerTick,
+        plugin, backVoid);
+
+    //test it
+    return bottomVoid;
+  }
+
+  //main world perm
+  public WorldPermutation(List<Location> faceLocations, int radius, Vector3d topFaceCoordinateOnMainWorld, Plugin plugin) {
+    this.center = faceLocations.get(0).clone().subtract(0,radius,0);
+    this.radius = radius;
+    this.axisTransformation = AxisTransformation.TOP;
+    this.topFaceCoordinateOnMainWorld = topFaceCoordinateOnMainWorld;
+
+    faceCenters = new Location[] {
+        translateLocation(center, 0, radius, 0),
+        translateLocation(center, -radius, 0, 0),
+        translateLocation(center, 0, -radius, 0),
+        translateLocation(center, radius, 0, 0),
+        translateLocation(center, 0, 0, radius),
+        translateLocation(center, 0, 0, -radius)
+    };
+
+    AxisTransformation[] transformations = new AxisTransformation[] {
+        AxisTransformation.TOP,
+        AxisTransformation.FRONT,
+        AxisTransformation.BOTTOM,
+        AxisTransformation.BACK,
+        AxisTransformation.LEFT,
+        AxisTransformation.RIGHT
+    };
+
+    ISetBlocksOverTimeOperation prev = null;
+    for (int i = 1; i < faceCenters.length; i++) {
+      System.out.println(transformations[i]);
+      ISetBlocksOverTimeOperation temp = new CopyAndRotateCubeFaceOperation(
+          faceLocations.get(i),
+          faceCenters[i],
+          radius,
+          transformations[i],
+          1000,
+          plugin,
+          prev);
+      prev = temp;
+
+    }
+
+//    prev.apply();
+    clearBlocksAroundCubeWorld(faceLocations.get(0), 1000, radius, radius + 100, plugin, prev).apply();
+
+    createOperation = prev;
+
+  }
+
+  public ISetBlocksOverTimeOperation getCreateOperation() {
+    return createOperation;
+  }
 
   public WorldPermutation(Location centerInWorld, Location pasteCenter, int radius, AxisTransformation upFace, Vector3d topFaceCoordinateOnMainWorld) {
     this.center = pasteCenter;

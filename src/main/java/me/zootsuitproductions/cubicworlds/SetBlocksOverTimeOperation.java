@@ -52,6 +52,7 @@ public class SetBlocksOverTimeOperation implements ISetBlocksOverTimeOperation {
   }
 
   public void apply() {
+    System.out.println("applying new clear operation");
     Bukkit.getScheduler().runTaskTimer(plugin, () -> {
           if (clearCurrentTickBlockQuotaAndReturnWhenDoneWithSection()) {
             Bukkit.getScheduler().cancelTasks(plugin);

@@ -1,6 +1,7 @@
 package me.zootsuitproductions.cubicworlds;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -19,11 +20,21 @@ public class CubeWorld {
   Vector3d[] cubeFaceCenters = new Vector3d[6];
   WorldPermutation[] worldPermutations = new WorldPermutation[6];
 
+  public CubeWorld(List<Location> faceCenters, int radius, Plugin plugin) {
+    this.radius = radius;
+    cubeFaceCenters[0] = new Vector3d(0, radius,0);
+
+    new WorldPermutation(faceCenters,radius,cubeFaceCenters[0],plugin);
+
+  }
   public CubeWorld(Location center, Location pasteCenter, int radius) {
     this.radius = radius;
     int spaceBetweenCubeRotationsInWorld = radius*5 + 30;
 
     cubeFaceCenters[0] = new Vector3d(0, radius,0);
+
+
+
     worldPermutations[0] = new WorldPermutation(center, pasteCenter, radius, AxisTransformation.TOP, cubeFaceCenters[0]);
 
     for (int i = 1; i < AxisTransformation.transformations.length; i++) {

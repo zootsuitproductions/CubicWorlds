@@ -33,6 +33,7 @@ public class CopyAndRotateCubeFaceOperation implements ISetBlocksOverTimeOperati
   }
 
   public void apply() {
+    System.out.println("applying new opp");
     applyPyramid();
   }
 
@@ -123,6 +124,7 @@ public class CopyAndRotateCubeFaceOperation implements ISetBlocksOverTimeOperati
         center.getBlockY() + rotatedCoordinate.y,
         center.getBlockZ()  + rotatedCoordinate.z).getBlock();
 
+    System.out.println(pasteBlock.getLocation().toString());
     pasteBlock.setBlockData(TransformationUtils.rotateBlockData(blockData, transformation));
   }
 }
