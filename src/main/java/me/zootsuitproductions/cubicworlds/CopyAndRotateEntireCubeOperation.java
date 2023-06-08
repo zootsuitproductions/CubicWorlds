@@ -5,29 +5,24 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
-import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.plugin.Plugin;
 import org.joml.Vector3d;
 
-public class CopyAndRotateCubeFaceOperation implements ISetBlocksOverTimeOperation {
+public class CopyAndRotateEntireCubeOperation implements ISetBlocksOverTimeOperation {
   private final Location copyCenter;
-  public final Location center;
+  public final Location pasteCenter;
   private final int radius;
-
   private final AxisTransformation transformation;
-
   private final int blocksPerTick;
   private final Plugin plugin;
   private final ISetBlocksOverTimeOperation nextOperation;
   int currentX;
-
   int currentY;
   int currentZ;
 
-  CopyAndRotateCubeFaceOperation(Location centerToCopy, Location centerOfPaste, int radius, AxisTransformation transformation, int blocksPerTick, Plugin plugin, ISetBlocksOverTimeOperation nextOp) {
-    center = centerOfPaste;
+  CopyAndRotateEntireCubeOperation(Location centerToCopy, Location centerOfPaste, int radius, AxisTransformation transformation, int blocksPerTick, Plugin plugin, ISetBlocksOverTimeOperation nextOp) {
+    pasteCenter = centerOfPaste;
     copyCenter = centerToCopy;
     this.transformation = transformation;
     this.radius = radius;
@@ -38,27 +33,15 @@ public class CopyAndRotateCubeFaceOperation implements ISetBlocksOverTimeOperati
 
   public void apply() {
     System.out.println("applying new opp");
-    applyPyramid();
-  }
+    System.out.println(transformation);
 
-
-  private void applyPyramid() {
-    currentY = -radius;
-    currentX = -(radius + currentY);
-    currentZ = -(radius + currentY);
-
-    Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-
-          if (copyPyramid()) {
-            Bukkit.getScheduler().cancelTasks(plugin);
-            applyCube();
-          }
-        },
-        0L, 1L);
+    System.out.println("copy center: " + copyCenter);
+    System.out.println("paste center: " + pasteCenter);
+    applyCube();
   }
 
   private void applyCube() {
-    currentY = 0;
+    currentY = -radius;
     currentX = -radius;
     currentZ = -radius;
 
@@ -81,33 +64,10 @@ public class CopyAndRotateCubeFaceOperation implements ISetBlocksOverTimeOperati
       for (currentX = currentX; currentX <= radius; currentX++) {
         for (currentZ = currentZ; currentZ <= radius; currentZ++) {
           if (clearedThisTick >= blocksPerTick) return false;
-
           copyRotateAndPaste(new Vector3d(currentX,currentY,currentZ));
           clearedThisTick++;
         } currentZ = -radius;
       } currentX = -radius;
-    }
-
-    return true;
-  }
-
-  private boolean copyPyramid() {
-    int clearedThisTick = 0;
-
-    //loop in an inverted pyramid below the center y
-    for (currentY = currentY; currentY < 0; currentY++) {
-      for (currentX = currentX; currentX <= (radius + currentY); currentX++) {
-        for (currentZ = currentZ; currentZ <= (radius + currentY); currentZ++) {
-
-          if (clearedThisTick >= blocksPerTick) return false;
-
-          copyRotateAndPaste(new Vector3d(currentX,currentY,currentZ));
-          clearedThisTick++;
-        }
-        currentZ = -(radius + (currentY));
-      }
-      currentX = -(radius + (currentY + 1)); //use the next y level
-      currentZ = -(radius + (currentY + 1)); //use the next y level
     }
 
     return true;
@@ -123,11 +83,12 @@ public class CopyAndRotateCubeFaceOperation implements ISetBlocksOverTimeOperati
 
     BlockData blockData = copyBlock.getBlockData();
 
+    System.out.println(copyBlock.getLocation() + ", " + blockData.getMaterial() );
 
-    Block pasteBlock =  new Location(center.getWorld(),
-        center.getBlockX() + rotatedCoordinate.x,
-        center.getBlockY() + rotatedCoordinate.y,
-        center.getBlockZ()  + rotatedCoordinate.z).getBlock();
+    Block pasteBlock =  new Location(pasteCenter.getWorld(),
+        pasteCenter.getBlockX() + rotatedCoordinate.x,
+        pasteCenter.getBlockY() + rotatedCoordinate.y,
+        pasteCenter.getBlockZ()  + rotatedCoordinate.z).getBlock();
 
     pasteBlock.setBlockData(TransformationUtils.rotateBlockData(blockData, transformation));
 
@@ -136,5 +97,7 @@ public class CopyAndRotateCubeFaceOperation implements ISetBlocksOverTimeOperati
       //used to disable world water flowing
       pasteBlock.setBiome(Biome.THE_VOID);
     }
+
+    //do a check to see if its face up. and unfreeze the water
   }
 }

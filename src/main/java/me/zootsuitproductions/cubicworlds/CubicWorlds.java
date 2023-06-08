@@ -1,21 +1,19 @@
 package me.zootsuitproductions.cubicworlds;
 
-import com.sk89q.worldedit.bukkit.BukkitAdapter;
-import com.sk89q.worldedit.extent.clipboard.BlockArrayClipboard;
-import com.sk89q.worldedit.function.operation.Operation;
-import com.sk89q.worldedit.function.operation.Operations;
-import com.sk89q.worldedit.world.block.BaseBlock;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
-import com.sk89q.worldedit.*;
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
 import org.bukkit.GameMode;
-import org.bukkit.Material;
 import org.bukkit.WorldCreator;
-import org.bukkit.block.Block;
+import org.bukkit.WorldType;
+import org.bukkit.block.Biome;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -25,12 +23,8 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.server.ServerLoadEvent;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.World;
 import org.bukkit.Location;
@@ -43,79 +37,240 @@ public class CubicWorlds extends JavaPlugin implements Listener {
   Map<UUID, Long> playerLastMoveTime = new HashMap<UUID, Long>();
   Map<UUID, Integer> playerCurrentFace = new HashMap<UUID, Integer>();
 
-  private FileConfiguration dataConfig;
-  private File dataFile;
-
   private CubeWorld cube;
+  private static String creatingWorldStateFileName = "creatingNewWorldState.txt";
+
+  private static Vector[] faceCenters = new Vector[] {
+      new Vector(500,60,500),
+      new Vector(1500,60,1500),
+      new Vector(2500,60,2500),
+      new Vector(3500,60,3500),
+      new Vector(4500,60,4500),
+      new Vector(5500,60,5500),
+  };
+
+
+  //config stuff:
+  //-------------------------------------------------------------------------------------------------
+  //-------------------------------------------------------------------------------------------------
+  private File configFile;
+  private FileConfiguration config;
+
+  private void setupConfig() {
+    configFile = new File(getDataFolder(), "config.yml");
+
+    if (!configFile.exists()) {
+      saveResource("config.yml", false);
+    }
+
+    config = YamlConfiguration.loadConfiguration(configFile);
+  }
+
+  private void saveCubeWorldRadius() {
+    config.set("cubeWorldRadius", cubeWorldRadius);
+
+    try {
+      config.save(configFile);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
+  private void loadCubeWorldRadius() {
+    cubeWorldRadius = config.getInt("cubeWorldRadius");
+    System.out.println("RADIUS: +" + cubeWorldRadius);
+  }
+  //-------------------------------------------------------------------------------------------------
+  //-------------------------------------------------------------------------------------------------
+
+  @Override
+  public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+
+    if (cmd.getName().equalsIgnoreCase("createCubeWorld")) {
+
+      if (sender.hasPermission("createCubeWorld.use")) {
+        try {
+          cubeWorldRadius = Integer.parseInt(args[0]);
+          saveCubeWorldRadius();
+        } catch (Exception e) {
+          sender.sendMessage("You must specify the radius of the cube world: /createcubeworld [radius]");
+          return true;
+        }
+
+        String worldName = "cube_world";
+        if (args.length >= 2) {
+          worldName = args[1];
+        }
+        createVoidWorld(worldName);
+        createAndWriteFile("world_to_change_to.txt", worldName);
+
+        readyToAddFaces = true;
+        faceLocations.clear();
+
+        sender.sendMessage("Go to 6 locations you want to use as the cube faces and do /addface");
+
+      }
+    } else if (cmd.getName().equalsIgnoreCase("goBackToNormalWorld")) {
+
+      createAndWriteFile("world_to_change_to.txt","world");
+      Bukkit.shutdown();
+
+    } else if (cmd.getName().equalsIgnoreCase("addFace")) {
+      Player p = (Player) sender;
+      Location ploc = p.getLocation();
+
+      if (!readyToAddFaces) {
+        p.sendMessage("Use /createCubeWorld [r] first");
+        return true;
+      }
+
+      faceLocations.add(ploc);
+
+      int minHeight = ploc.getWorld().getMinHeight();
+      int maxHeight = ploc.getWorld().getMaxHeight();
+
+      int x1 = ploc.getBlockX() - cubeWorldRadius;
+      int y1 = clampValueToRange(ploc.getBlockY() - cubeWorldRadius, minHeight,maxHeight);
+      int z1 = ploc.getBlockZ() - cubeWorldRadius;
+
+      int x2 = ploc.getBlockX() + cubeWorldRadius;
+      int y2 = clampValueToRange(ploc.getBlockY() + cubeWorldRadius, minHeight,maxHeight);
+      int z2 = ploc.getBlockZ() + cubeWorldRadius;
+
+      p.performCommand("/pos1 " + x1 + "," + y1 + "," + z1);
+      p.performCommand("/pos2 " + x2 + "," + y2 + "," + z2);
+      p.performCommand("/copy -b -e");
+      p.performCommand("/schem save face" + currentFace + " -f");
+
+
+      if (currentFace >= 5) {
+        createAndWriteFile(creatingWorldStateFileName, "true");
+        Bukkit.shutdown();
+      }
+
+      currentFace ++;
+    } else if (cmd.getName().equalsIgnoreCase("rot")) {
+      Player p = (Player) sender;
+      GameMode currentMode = p.getGameMode();
+      p.setGameMode(GameMode.SPECTATOR);
+      Location loc = p.getLocation();
+
+      rotTimer(p, currentMode);
+    }
+    return true;
+  }
+
+  private static boolean shouldCreateNewCubeWorld() {
+    try {
+      String content = new String(Files.readAllBytes(Paths.get(creatingWorldStateFileName)));
+      return true;
+    } catch (IOException e) {
+
+      System.out.println("i cant read ium a dumm");
+      return false;
+    }
+  }
+
+  public void deleteFile(String filePath) {
+    File file = new File(filePath);
+
+    if (file.exists()) {
+      boolean deleted = file.delete();
+
+      if (deleted) {
+        System.out.println("File deleted successfully.");
+      } else {
+        System.out.println("Failed to delete the file.");
+      }
+    } else {
+      System.out.println("File does not exist.");
+    }
+  }
+
+  private void copyFaceCentersFromSchematics() {
+    String worldName = Bukkit.getWorlds().get(0).getName();
+    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "/world " + worldName);
+
+    pasteFaceCentersOverTime(0, faceCenters.length);
+  }
+
+  private void pasteFaceCentersOverTime(int currentFaceIndex, int lastFaceIndex) {
+    if (currentFaceIndex >= lastFaceIndex) {
+      World world = Bukkit.getWorlds().get(0);
+
+      ArrayList<Location> locs = new ArrayList<Location>();
+      locs.add(new Location(world, 500, 60, 500));
+      locs.add(new Location(world, 1500, 60, 1500));
+      locs.add(new Location(world, 2500, 60, 2500));
+      locs.add(new Location(world, 3500, 60, 3500));
+      locs.add(new Location(world, 4500, 60, 4500));
+      locs.add(new Location(world, 5500, 60, 5500));
+
+      cube = new CubeWorld(locs,cubeWorldRadius,this);
+      return;
+    }
+
+    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "/schem load face" + currentFaceIndex);
+    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "/pos1 " +
+        faceCenters[currentFaceIndex].getBlockX() + "," +
+        faceCenters[currentFaceIndex].getBlockY() + "," +
+        faceCenters[currentFaceIndex].getBlockZ());
+    Bukkit.getScheduler().runTaskLater(this, new Runnable() {
+      public void run() {
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "/paste");
+        pasteFaceCentersOverTime(currentFaceIndex + 1, lastFaceIndex);
+      }
+    }, 100L); //5 seconds
+  }
 
   @Override
   public void onEnable() {
     getServer().getPluginManager().registerEvents(this, this);
 
-    WorldCreator worldCreator = new WorldCreator("air_world");
-    worldCreator.generator(new ChunkGen());
-    World world = worldCreator.createWorld();
-
-    // Create or load data file
-    dataFile = new File(getDataFolder(), "data.yml");
-    if (!dataFile.exists()) {
-      saveResource("data.yml", false);
-    }
-    dataConfig = YamlConfiguration.loadConfiguration(dataFile);
-
-    // Load variable from file
-//        cube = dataConfig.getInt("myVariable", 0);
-  }
+    setupConfig();
+    loadCubeWorldRadius();
 
 
-  @Override
-  public void onDisable() {
-    // Save variable to file
-    dataConfig.set("cube", cube);
-    try {
-      dataConfig.save(dataFile);
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-  }
+//
+//    World world = Bukkit.getWorlds().get(0);
 
-//    @EventHandler
-//    public void onServerSave(ServerSaveEvent event) {
-//        // Save variable to file when the server is being saved
-//        saveCubeData();
-//    }
+//    ArrayList<Location> locs = new ArrayList<Location>();
+//    locs.add(new Location(world, 500, 60, 500));
+//    locs.add(new Location(world, 1500, 60, 1500));
+//    locs.add(new Location(world, 2500, 60, 2500));
+//    locs.add(new Location(world, 3500, 60, 3500));
+//    locs.add(new Location(world, 4500, 60, 4500));
+//    locs.add(new Location(world, 5500, 60, 5500));
+//
+//    cubeWorldRadius = 40;
+    //need to save the face locations after quitting
 
-  @EventHandler
-  public void onServerLoad(ServerLoadEvent event) {
-    // Load variable from file when the server is being loaded
-//         myVariable = dataConfig.getInt("myVariable", 0);
-  }
+    //AND SAVE THE RADIUS
 
-  private void saveCubeData() {
-    dataConfig.set("cube", cube);
-    try {
-      dataConfig.save(dataFile);
-    } catch (IOException e) {
-      e.printStackTrace();
+
+    //some falling gravel from the top face might fuck things. apply the reverse pyamid of air
+    //first (copy the top face upright from another location (not 500,500), then delete it
+
+    //do this after copying shit
+//    cube = new CubeWorld(locs,cubeWorldRadius,this);
+
+
+    //remove this later, just for tesitng
+//    copyFaceCentersFromSchematics();
+
+    if (shouldCreateNewCubeWorld()) {
+      System.out.println("Creating new cube world");
+      deleteFile(creatingWorldStateFileName);
+
+      copyFaceCentersFromSchematics();
+
+
+      //this will get called before the delay:
+//      /*cube = */new CubeWorld(faceLocations,cubeWorldRadius,this);
+
     }
   }
-
-  // 0 face:
-  // - pos x goes to 1, rotate 90
-  // - neg x  goes to
-  //
-  // Pos x edge
-
-
-    /*
-
-
-    NOTES:
-    - instead of copying to a different location, make the block cone cube inverted pyramid face shape where ur standing when u run a command.
-    - run the same command again standing  at a different location to set the next face. the top faces should never be copied, they should stay where they are
-    - this means i cant just do the full cube rotation to set the other sides.
-    - i also need to make the copying happen over time so it doesn't crash
-
+/*
 
     Todo:
     - first, create new command to set the place under you a face.
@@ -127,25 +282,6 @@ public class CubicWorlds extends JavaPlugin implements Listener {
 
      */
 
-//    private Location[] centerLocations
-
-  int blockX;
-  int blockY;
-  int blockZ;
-
-  VoidDirection currentVoidSectionClearing = VoidDirection.LEFT;
-  boolean leftVoidDoneClearing = false;
-  boolean rightVoidDoneClearing = false;
-
-  boolean topCubeDoneClearing = false;
-  boolean bottomCubeDoneClearing = false;
-
-  private void clearRegion(Location minCorner, Location maxCorner, int blocksPerTick) {
-    Bukkit.getScheduler().runTaskTimer(this, () -> {
-
-    }, 0L, 1L);
-  }
-
   public static int clampValueToRange(int value, int min, int max) {
     if (value > max) {
       return max;
@@ -155,165 +291,48 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     return value;
   }
 
-  //WRITE A CODE TO OPTIMIZE THE blocks per tick taken. how to check if server is falling behind?
-  //SEE IF I CAN DO MULTIPLE WORLDS. copy a region to an empty void world.
-  //also all the entities and block datas
+  List<Location> faceLocations = new ArrayList<Location>();
+  private boolean readyToAddFaces = false;
+  private int cubeWorldRadius;
+  private int currentFace = 0;
 
+  private static void createVoidWorld(String name) {
+    //check if this will delete, for general usability. not essential though.
+    WorldCreator creator = new WorldCreator(name);
+    creator.type(WorldType.FLAT);
 
-  //USE WORLD EDIT API, its supposed to be more efficient
+    creator.generatorSettings("{\"layers\": [{\"block\": \"air\", \"height\": 1}, {\"block\": \"air\", \"height\": 1}], \"biome\":\"plains\"}");
+    creator.generateStructures(false);
 
-  private void clearBlocksAroundCubeWorld(Location center, int blocksPerTick, int cubeRadius,
-      int clearUntilRadius) {
-    World world = center.getWorld();
-
-    int maxHeight = center.getWorld().getMaxHeight();
-    int minHeight = center.getWorld().getMinHeight();
-
-    int centerX = center.getBlockX();
-    int centerY = center.getBlockY();
-    int centerZ = center.getBlockZ();
-
-    blockX = -clearUntilRadius;
-    blockY = minHeight;
-    blockZ = -clearUntilRadius;
-
-    ISetBlocksOverTimeOperation leftVoid = new SetBlocksOverTimeOperation(
-        new Location(
-            world,
-            centerX - clearUntilRadius,
-            minHeight,
-            centerZ - clearUntilRadius),
-        new Location(
-            world,
-            centerX - cubeRadius,
-            maxHeight,
-            centerZ + clearUntilRadius),
-        blocksPerTick, this, null);
-
-    ISetBlocksOverTimeOperation rightVoid = new SetBlocksOverTimeOperation(
-        new Location(
-            world,
-            centerX + cubeRadius,
-            minHeight,
-            centerZ - clearUntilRadius),
-        new Location(
-            world,
-            centerX + clearUntilRadius,
-            maxHeight,
-            centerZ + clearUntilRadius),
-        blocksPerTick,
-     this, leftVoid);
-
-    ISetBlocksOverTimeOperation frontVoid = new SetBlocksOverTimeOperation(
-        new Location(
-            world,
-            centerX - cubeRadius,
-            minHeight,
-            centerZ + cubeRadius),
-        new Location(
-            world,
-            centerX + cubeRadius,
-            maxHeight,
-            centerZ + clearUntilRadius),
-        blocksPerTick, this, rightVoid);
-
-    ISetBlocksOverTimeOperation backVoid = new SetBlocksOverTimeOperation(
-        new Location(
-            world,
-            centerX - cubeRadius,
-            minHeight,
-            centerZ - clearUntilRadius),
-        new Location(
-            world,
-            centerX + cubeRadius,
-            maxHeight,
-            centerZ - cubeRadius),
-        blocksPerTick, this, frontVoid);
-
-    ISetBlocksOverTimeOperation bottomVoid = new SetBlocksOverTimeOperation(
-        new Location(
-            world,
-            centerX - clearUntilRadius,
-            minHeight,
-            centerZ - clearUntilRadius),
-        new Location(
-            world,
-            centerX + clearUntilRadius,
-            clampValueToRange(centerY - 2 * cubeRadius, minHeight, maxHeight),
-            centerZ + clearUntilRadius),
-        blocksPerTick,
-        this, backVoid);
-
-    //test it
-    bottomVoid.apply();
+    World world = creator.createWorld();
   }
 
-  List<Location> faceLocations = new ArrayList<Location>();
-  private boolean creatingCubeWorld = false;
-  private int cubeWorldRadius;
 
-  @Override
-  public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-
-    if (cmd.getName().equalsIgnoreCase("createCubeWorld")) {
-
-      if (sender.hasPermission("createCubeWorld.use")) {
-        try {
-          cubeWorldRadius = Integer.parseInt(args[0]);
-        } catch (Exception e) {
-          sender.sendMessage("You must specify the radius of the cube world");
-          return true;
-        }
-        creatingCubeWorld = true;
-        faceLocations.clear();
-
-        sender.sendMessage("Go to 6 locations you want to use as the cube faces and do /addface");
-
-      }
-    } else if (cmd.getName().equalsIgnoreCase("changeEdge")) {
-      Player p = (Player) sender;
-
-    } else if (cmd.getName().equalsIgnoreCase("addFace")) {
-      Player p = (Player) sender;
-
-      faceLocations.add(p.getLocation());
-
-      if (faceLocations.size() >= 6) {
-        p.sendMessage("creating");
-        clearBlocksAroundCubeWorld(p.getLocation(), 200, cubeWorldRadius, cubeWorldRadius + 20);
-        new CubeWorld(faceLocations,cubeWorldRadius,this);
-//        new CopyAndRotateCubeFaceOperation(p.getLocation(), p.getLocation().clone().add(0,50,0),Integer.parseInt(args[0]),AxisTransformation.FRONT,Integer.parseInt(args[1]),this,null).apply();
+  public static void createAndWriteFile(String filename, String content) {
+    try {
+      // Create the file if it doesn't exist
+      Path filePath = Paths.get(filename);
+      if (!Files.exists(filePath)) {
+        Files.createFile(filePath);
+        System.out.println("File created: " + filePath.toAbsolutePath());
       }
 
-//      int radius = Integer.parseInt(args[0]);
-//      int bpt = Integer.parseInt(args[1]);
+      // Write content to the file
+      try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
+        writer.write(content);
+        System.out.println("Content written to the file successfully.");
+      }
 
-
-
-//      clearBlocksAroundCubeWorld(p.getLocation(), bpt, radius, radius + 3 * 16);
-
-
-
-      //save the locations of each of the faces.
-      //and i cant just make 1 cube world and then rotate it. well
-
-
-
-      //just set make everything outside of the radius air. and maybe force load the chunks on the edges.
-      //radius should be by chunk
-
-    } else if (cmd.getName().equalsIgnoreCase("rot")) {
-      Player p = (Player) sender;
-      GameMode currentMode = p.getGameMode();
-      p.setGameMode(GameMode.SPECTATOR);
-      Location loc = p.getLocation();
-
-//            armorStand.setHeadPose(new EulerAngle(Math.toRadians(0), 0, 0));
-      rotTimer(p, currentMode);
-
-
+    } catch (IOException e) {
+      e.printStackTrace();
     }
-    return true;
+  }
+
+  @EventHandler
+  public void onBlockFromTo(BlockFromToEvent event) {
+    if(event.getBlock().getBiome() == Biome.THE_VOID) {
+      event.setCancelled(true);
+    }
   }
 
   public void rotTimer(Player p, GameMode playerMode) {
@@ -324,9 +343,6 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     a.setVisible(false);
     a.setGravity(false);
     p.setSpectatorTarget(a);
-
-//        CubeRotation.getLocalYawAxisFacing(pLoc.getYaw())
-    //find closest yaw axis
 
     new BukkitRunnable() {
 
@@ -347,25 +363,6 @@ public class CubicWorlds extends JavaPlugin implements Listener {
       }
     }.runTaskTimer(this, 0, 1);
   }
-
-  //do a wand thing
-  @EventHandler
-  public void onPlayerInteract(PlayerInteractEvent event) {
-    // Check if the player clicked on an item
-    if (event.getAction() == Action.RIGHT_CLICK_AIR
-        || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-      ItemStack item = event.getItem();
-      if (event.getPlayer().isOp()) {
-        if (item != null && item.getType() == Material.DIAMOND_SWORD) {
-
-        }
-      }
-    }
-  }
-//=
-  //check every half second instead of every tick
-  // get the face center ur closer to, if it changes, find the rotation necessary from the current face center to the next face,
-  // and then tp to your coordinates translated to that permutation and rotate by that angle
 
 
   private long timeOfSwitchEdgeStart = -1;
@@ -431,6 +428,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     System.out.println(level * 0.9);
     return (int) Math.ceil(seconds * 20);
   }
+
 
 
 }

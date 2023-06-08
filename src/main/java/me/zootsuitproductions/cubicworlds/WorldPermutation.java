@@ -20,7 +20,7 @@ public class WorldPermutation {
   private Location[] faceCenters;
   private Map<Location, Block> sidewaysBlocks = new HashMap<>();
 
-  private ISetBlocksOverTimeOperation createOperation;
+  public ISetBlocksOverTimeOperation creationOperation;
 
   private ISetBlocksOverTimeOperation clearBlocksAroundCubeWorld(Location center, int blocksPerTick, int cubeRadius,
       int clearUntilRadius, Plugin plugin, ISetBlocksOverTimeOperation nextOperation) {
@@ -105,7 +105,7 @@ public class WorldPermutation {
   }
 
   //main world perm
-  public WorldPermutation(List<Location> faceLocations, int radius, Vector3d topFaceCoordinateOnMainWorld, Plugin plugin) {
+  public WorldPermutation(List<Location> faceLocations, int radius, Vector3d topFaceCoordinateOnMainWorld, Plugin plugin, int blocksPerTick) {
     this.center = faceLocations.get(0).clone().subtract(0,radius,0);
     this.radius = radius;
     this.axisTransformation = AxisTransformation.TOP;
@@ -137,7 +137,7 @@ public class WorldPermutation {
           faceCenters[i],
           radius,
           transformations[i],
-          1000,
+          blocksPerTick,
           plugin,
           prev);
       prev = temp;
@@ -145,14 +145,11 @@ public class WorldPermutation {
     }
 
 //    prev.apply();
-    clearBlocksAroundCubeWorld(faceLocations.get(0), 1000, radius, radius + 100, plugin, prev).apply();
+    //debug this
+//    clearBlocksAroundCubeWorld(faceLocations.get(0), 50, radius, 300, plugin, prev).apply();
 
-    createOperation = prev;
+    creationOperation = prev;
 
-  }
-
-  public ISetBlocksOverTimeOperation getCreateOperation() {
-    return createOperation;
   }
 
   public WorldPermutation(Location centerInWorld, Location pasteCenter, int radius, AxisTransformation upFace, Vector3d topFaceCoordinateOnMainWorld) {
@@ -196,28 +193,15 @@ public class WorldPermutation {
         translateLocation(centerInWorld, 0, 0, -2*radius - 1),
         faceCenters[5],
         radius, 0, AxisTransformation.transformations[5], sidewaysBlocks);
-
   }
 
-  public WorldPermutation(WorldPermutation mainCube, Location pasteCenter, AxisTransformation axisTransformation, Vector3d topFaceCoordinateOnMainWorld) {
+  public WorldPermutation(WorldPermutation mainCube, Location pasteCenter, AxisTransformation axisTransformation, Vector3d topFaceCoordinateOnMainWorld, Plugin plugin, ISetBlocksOverTimeOperation nextOperation) {
     radius = mainCube.radius;
     this.center = pasteCenter;
     this.axisTransformation = axisTransformation;
     this.topFaceCoordinateOnMainWorld = topFaceCoordinateOnMainWorld;
 
-    for (int x = -2 * radius - 1; x <= 2 * radius + 1; x++) {
-      for (int y = -2 * radius - 1; y <= 2 * radius + 1; y++) {
-        for (int z = -2 * radius - 1; z <= 2 * radius + 1; z++) {
-          Vector3d localCoordinateSource = new Vector3d(x, y, z);
-          BlockData copyBlockData = mainCube.getBlockLocationFromRelativeCoordinate(localCoordinateSource).getBlock().getBlockData();
-
-          Vector3d localCoordinateDest = axisTransformation.apply(localCoordinateSource); //this is rotated
-          Location worldDestination = getBlockLocationFromRelativeCoordinate(localCoordinateDest);
-
-          worldDestination.getBlock().setBlockData(TransformationUtils.rotateBlockData(copyBlockData, axisTransformation));
-        }
-      }
-    }
+    creationOperation = new CopyAndRotateEntireCubeOperation(mainCube.center, pasteCenter, radius * 2, axisTransformation,500, plugin,nextOperation);
   }
 
   public static Vector3d getLocalYawAxisFacing(float yaw) {
@@ -290,8 +274,6 @@ public class WorldPermutation {
   }
 
   public Vector3d convertLookingVectorFromOtherCubeRotation(Vector3d lookDirectionOnOther, WorldPermutation other) {
-
-
     System.out.println("helloIN FUNC");
 
     System.out.println("currentWorld vector : " + lookDirectionOnOther);
@@ -325,7 +307,6 @@ public class WorldPermutation {
     Vector3d localYawAxis = axisTransformation.apply(yaxAxisWorld);
 
     System.out.println("local yaw axis: " + localYawAxis);
-
 
     //yaw doesnt face y so the matrix rotation fucks it
     //take into account pitch

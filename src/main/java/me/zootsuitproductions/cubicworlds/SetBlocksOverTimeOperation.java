@@ -51,9 +51,22 @@ public class SetBlocksOverTimeOperation implements ISetBlocksOverTimeOperation {
 
   }
 
+  private boolean firstTick = true;
+
   public void apply() {
     System.out.println("applying new clear operation");
     Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+//      timeFunctionStarted = System.currentTimeMillis();
+//      if (!firstTick) {
+//        System.out.println("in the scheduler next tick");
+//        taskTickDone = true;
+//      } else {
+//        firstTick = false;
+//      }
+//      clearCurrentTickBlockQuotaAndReturnWhenDoneWithSection();
+
+      //check if the last one finished. or rather, run the function infinitely each time
+      // and then stop it and restart each tick while keeping progress
           if (clearCurrentTickBlockQuotaAndReturnWhenDoneWithSection()) {
             Bukkit.getScheduler().cancelTasks(plugin);
             if (nextOperation != null) {
@@ -64,15 +77,30 @@ public class SetBlocksOverTimeOperation implements ISetBlocksOverTimeOperation {
         0L, 1L);
   }
 
+  private long timeFunctionStarted;
+
+
 
   private boolean clearCurrentTickBlockQuotaAndReturnWhenDoneWithSection() {
+
     int clearedThisTick = 0;
 
     for (currrentX = currrentX; currrentX <= maxCornerX; currrentX ++) {
       for (currentY = currentY; currentY <= maxCornerY; currentY ++) {
         for (currentZ = currentZ; currentZ <= maxCornerZ; currentZ ++) {
+
+//          if (System.currentTimeMillis() >= timeFunctionStarted + 500/20) {
+//            return false;
+//          }
           // Stop clearing blocks for this tick if fulfilled quota
-          if (clearedThisTick >= blocksPerTick) return false;
+//          if (taskTickDone == true) {
+//            System.out.println("cleared: " + clearedThisTick);
+//            taskTickDone = false;
+//            return false;
+//          }
+          if (clearedThisTick >= blocksPerTick) {
+            return false;
+          }
 
           world.getBlockAt(currrentX, currentY, currentZ).setType(Material.AIR);
           clearedThisTick++;
