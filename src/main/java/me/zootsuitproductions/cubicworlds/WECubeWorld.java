@@ -4,16 +4,15 @@ import java.util.ArrayList;
 import java.util.List;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Vector;
 
 public class WECubeWorld {
-  private final int xRadius;
-  private final int yRadius;
-  private final int zRadius;
-
-
-  private List<Location> faceCenters = new ArrayList<Location>();
+  public final int xRadius;
+  public final int yRadius;
+  public final int zRadius;
+  private int currentFace = 0;
 
   WECubeWorld(int xRadius, int yRadius, int zRadius) {
     this.xRadius = xRadius;
@@ -21,48 +20,131 @@ public class WECubeWorld {
     this.zRadius = zRadius;
   }
 
-  private void setPyramidOfAirFromBottom(Location faceCenter) {
-    for (int relativeY = 0; relativeY >= -yRadius; relativeY--) {
-      WorldEditCommandExecutor commandExecutor = new WorldEditCommandExecutor(Bukkit.getWorlds().get(0).getName());
+  private final Vector[] faceRotationValues = new Vector[] {
+      new Vector(0,0,0),
+      new Vector(0,0,90),
+      new Vector(0,0,180),
+      new Vector(0,0,-90),
+      new Vector(90,0,0),
+      new Vector(-90,0,0)
+  };
 
-      commandExecutor.setPos1(
-          faceCenter.getBlockX() + xRadius - relativeY,
-          -yRadius,
-          faceCenter.getBlockZ() - zRadius);
-      commandExecutor.setPos2(
-          faceCenter.getBlockX() + xRadius - relativeY,
-          yRadius - relativeY,
-          faceCenter.getBlockZ() + zRadius);
-      commandExecutor.setAir();
+  private final Vector[] permRotationValues = new Vector[] {
+      new Vector(0,0,0),
+      new Vector(0,0,-90),
+      new Vector(0,0,180),
+      new Vector(0,0,90),
+      new Vector(-90,0,0),
+      new Vector(90,0,0)
+  };
+
+  static int spacing = 50;
+
+  public void pasteWorldAtLocation(Location center, Plugin plugin) {
+    List<String> commands = new ArrayList<>();
+    List<Integer> delays = new ArrayList<>();
+
+    commands.add("/world " + center.getWorld().getName());
+    delays.add(0);
+
+    for (int i = 0; i < 6; i++) {
+      commands.add("/schem load face" + i);
+      delays.add(20);
+
+      Vector rotation = faceRotationValues[i];
+      commands.add("/rotate " + rotation.getBlockY() + " " + rotation.getBlockX() + " "
+          + rotation.getBlockZ());
+
+      delays.add(10);
+
+      commands.add(
+          "/pos1 " + center.getBlockX() + "," + center.getBlockY() + "," + center.getBlockZ());
+      delays.add(0);
+
+      commands.add("/paste -a");
+      delays.add(5);
+    }
+
+    for (int currentRotation = 1; currentRotation < permRotationValues.length; currentRotation++) {
+      for (int i = -2; i <= 2; i += 4) {
+        for (int j = -2; j <= 2; j += 4) {
+          for (int k = -2; k <= 2; k += 4) {
+            commands.add("/pos1 " + (center.getBlockX()) + ","
+                + (center.getBlockY()) + "," + (center.getBlockZ()));
+            delays.add(0);
+
+            commands.add("/pos2 " + (center.getBlockX() + i * xRadius) + ","
+                + (center.getBlockY() + k * yRadius) + "," + (center.getBlockZ()
+                + j * zRadius));
+            delays.add(0);
+
+            commands.add("/copy -be");
+            delays.add(20);
+
+            Vector rotation = permRotationValues[currentRotation];
+            commands.add("/rotate " + rotation.getBlockY() + " " + rotation.getBlockX() + " "
+                + rotation.getBlockZ());
+            delays.add(10);
+
+            commands.add("/pos1 " + (center.getBlockX() + currentRotation * spacing) + ","
+                + (center.getBlockY()) + "," + (center.getBlockZ()));
+            delays.add(0);
+
+            commands.add("/paste -a");
+            delays.add(5);
+          }
+        }
+      }
+
+      new TimedCommandExecutor(plugin, commands, delays).execute();
     }
   }
 
-  public void addFace(Location faceCenter) {
-    faceCenters.add(faceCenter);
+  private static int clampValueToWorldHeight(int value, World world) {
+    if (value > world.getMaxHeight()) {
+      return world.getMaxHeight();
+    } else if (value < world.getMinHeight()) {
+      return world.getMinHeight();
+    }
+    return value;
+  }
 
-    setPyramidOfAirFromBottom(faceCenter);
-//
-//    int minHeight = faceCenter.getWorld().getMinHeight();
-//    int maxHeight = faceCenter.getWorld().getMaxHeight();
-//
-//    int x1 = faceCenter.getBlockX() - xRadius;
-//    int y1 = clampValueToRange(faceCenter.getBlockY() - cubeWorldRadius, minHeight,maxHeight);
-//    int z1 = faceCenter.getBlockZ() - zRadius;
-//
-//    int x2 = faceCenter.getBlockX() + xRadius;
-//    int y2 = clampValueToRange(faceCenter.getBlockY() + cubeWorldRadius, minHeight,maxHeight);
-//    int z2 = faceCenter.getBlockZ() + zRadius;
-//
-//
-//    p.performCommand("/pos1 " + x1 + "," + y1 + "," + z1);
-//    p.performCommand("/pos2 " + x2 + "," + y2 + "," + z2);
-//    p.performCommand("/copy -b -e");
-//    p.performCommand("/schem save face" + currentFace + " -f");
-//
-//
-//    if (faceCenters.size() >= 5) {
-//      createAndWriteFile(creatingWorldStateFileName, "true");
-//      Bukkit.shutdown();
-//    }
+  public void addFace(Location faceCenter) {
+
+    if (currentFace > 5) {
+      return;
+    }
+
+    WECommandExecutor commandExecutor = new WECommandExecutor(faceCenter.getWorld().getName());
+    commandExecutor.setSelectionConvex();
+
+    int x = faceCenter.getBlockX();
+    int y = faceCenter.getBlockY();
+    int z = faceCenter.getBlockZ();
+
+    int minY = clampValueToWorldHeight(y - yRadius, faceCenter.getWorld());
+    int maxY = clampValueToWorldHeight(y + yRadius, faceCenter.getWorld());
+
+    commandExecutor.setPos1(x, minY, z); //bottom of inverted pyramid. it will copy from here
+
+    commandExecutor.setPos2(x - xRadius, y, z - zRadius);
+    commandExecutor.setPos2(x - xRadius, y, z + zRadius);
+    commandExecutor.setPos2(x + xRadius, y, z - zRadius);
+    commandExecutor.setPos2(x + xRadius, y, z + zRadius);
+
+    commandExecutor.setPos2(x - xRadius, maxY, z - zRadius);
+    commandExecutor.setPos2(x - xRadius, maxY, z + zRadius);
+    commandExecutor.setPos2(x + xRadius, maxY, z - zRadius);
+    commandExecutor.setPos2(x + xRadius, maxY, z + zRadius);
+
+    commandExecutor.copy();
+    commandExecutor.saveSchematic("face" + currentFace);
+
+    currentFace ++;
+
+    if (currentFace > 5) {
+      CubicWorlds.createAndWriteFile(CubicWorlds.creatingWorldStateFileName, "true");
+      Bukkit.shutdown();
+    }
   }
 }

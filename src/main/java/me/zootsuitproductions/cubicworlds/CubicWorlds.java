@@ -23,6 +23,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -37,8 +38,8 @@ public class CubicWorlds extends JavaPlugin implements Listener {
   Map<UUID, Long> playerLastMoveTime = new HashMap<UUID, Long>();
   Map<UUID, Integer> playerCurrentFace = new HashMap<UUID, Integer>();
 
-  private CubeWorld cube;
-  private static String creatingWorldStateFileName = "creatingNewWorldState.txt";
+//  private CubeWorld cube;
+  public static String creatingWorldStateFileName = "creatingNewWorldState.txt";
 
   private static Vector[] faceCenters = new Vector[] {
       new Vector(500,60,500),
@@ -83,6 +84,11 @@ public class CubicWorlds extends JavaPlugin implements Listener {
   //-------------------------------------------------------------------------------------------------
   //-------------------------------------------------------------------------------------------------
 
+  private WECubeWorld cubeWorld;
+  private CubeWorld cube;
+
+  Location cubeCenter;
+
   @Override
   public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 
@@ -91,26 +97,37 @@ public class CubicWorlds extends JavaPlugin implements Listener {
       if (sender.hasPermission("createCubeWorld.use")) {
         try {
           cubeWorldRadius = Integer.parseInt(args[0]);
+          cubeWorld = new WECubeWorld(cubeWorldRadius,cubeWorldRadius,cubeWorldRadius);
           saveCubeWorldRadius();
         } catch (Exception e) {
           sender.sendMessage("You must specify the radius of the cube world: /createcubeworld [radius]");
           return true;
         }
 
+        //after testing, change the world
         String worldName = "cube_world";
         if (args.length >= 2) {
           worldName = args[1];
         }
+
         createVoidWorld(worldName);
         createAndWriteFile("world_to_change_to.txt", worldName);
 
         readyToAddFaces = true;
-        faceLocations.clear();
 
         sender.sendMessage("Go to 6 locations you want to use as the cube faces and do /addface");
 
       }
+    } else if (cmd.getName().equalsIgnoreCase("pasteWorld")) {
+      cubeWorld.pasteWorldAtLocation(((Player) sender).getLocation(), this);
+      cubeCenter = ((Player) sender).getLocation();
+
+      cube = new CubeWorld(cubeCenter,cubeWorldRadius, WECubeWorld.spacing);
+
+    } else if (cmd.getName().equalsIgnoreCase("pastePERM")) {
+//      new WEPermutationCreator(cubeCenter, cubeWorld.xRadius, cubeWorld.yRadius, cubeWorld.zRadius).createPerm(((Player) sender).getLocation(), this);
     } else if (cmd.getName().equalsIgnoreCase("goBackToNormalWorld")) {
+      Player p = (Player) sender;
 
       createAndWriteFile("world_to_change_to.txt","world");
       Bukkit.shutdown();
@@ -124,38 +141,56 @@ public class CubicWorlds extends JavaPlugin implements Listener {
         return true;
       }
 
-      faceLocations.add(ploc);
+      cubeWorld.addFace(((Player) sender).getLocation());
+      sender.sendMessage("Added the current location");
 
-      int minHeight = ploc.getWorld().getMinHeight();
-      int maxHeight = ploc.getWorld().getMaxHeight();
-
-      int x1 = ploc.getBlockX() - cubeWorldRadius;
-      int y1 = clampValueToRange(ploc.getBlockY() - cubeWorldRadius, minHeight,maxHeight);
-      int z1 = ploc.getBlockZ() - cubeWorldRadius;
-
-      int x2 = ploc.getBlockX() + cubeWorldRadius;
-      int y2 = clampValueToRange(ploc.getBlockY() + cubeWorldRadius, minHeight,maxHeight);
-      int z2 = ploc.getBlockZ() + cubeWorldRadius;
-
-      p.performCommand("/pos1 " + x1 + "," + y1 + "," + z1);
-      p.performCommand("/pos2 " + x2 + "," + y2 + "," + z2);
-      p.performCommand("/copy -b -e");
-      p.performCommand("/schem save face" + currentFace + " -f");
-
-
-      if (currentFace >= 5) {
-        createAndWriteFile(creatingWorldStateFileName, "true");
-        Bukkit.shutdown();
-      }
-
-      currentFace ++;
     } else if (cmd.getName().equalsIgnoreCase("rot")) {
       Player p = (Player) sender;
-      GameMode currentMode = p.getGameMode();
-      p.setGameMode(GameMode.SPECTATOR);
-      Location loc = p.getLocation();
 
-      rotTimer(p, currentMode);
+      if (cube.playerIsReadyToTeleport.getOrDefault(p.getUniqueId(), true)) {
+        if (cube.shouldPlayerBeTeleportedToNewFace(p)) { // code is duplicated jhere...
+          if (timeOfSwitchEdgeStart > 0) {
+//            long timeDifferenceBetweenMoves = System.currentTimeMillis() - timeOfSwitchEdgeStart;
+//            if (timeDifferenceBetweenMoves == 0) {
+//              return true;
+//            }
+
+//            Location displacement = event.getTo().clone().subtract(locOfSwitchStart);
+
+            double distanceTraveled = 1; // Calculate the distance traveled using the length() method
+            double timeInSeconds =
+                1000 / 1000.0; // Convert milliseconds to seconds
+
+            double speed =
+                distanceTraveled / timeInSeconds; // Calculate the speed in blocks per second
+
+            Vector velocity = new Vector(1 / timeInSeconds,
+                1 / timeInSeconds, 1 / timeInSeconds);
+            //find each axis speed
+
+            if (cube.teleportToClosestFace(p, velocity, this)) {
+              timeOfSwitchEdgeStart = -1;
+              locOfSwitchStart = null;
+            }
+
+          }
+        }
+
+        //set these back to null values when done successfully teleport!!!!INGAA
+        ///8
+        //
+        timeOfSwitchEdgeStart = System.currentTimeMillis();
+//        locOfSwitchStart = event.getTo();
+
+
+      }
+
+//      Player p = (Player) sender;
+//      GameMode currentMode = p.getGameMode();
+//      p.setGameMode(GameMode.SPECTATOR);
+//      Location loc = p.getLocation();
+//
+//      rotTimer(p, currentMode);
     }
     return true;
   }
@@ -187,41 +222,6 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     }
   }
 
-  private void copyFaceCentersFromSchematics() {
-    String worldName = Bukkit.getWorlds().get(0).getName();
-    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "/world " + worldName);
-
-    pasteFaceCentersOverTime(0, faceCenters.length);
-  }
-
-  private void pasteFaceCentersOverTime(int currentFaceIndex, int lastFaceIndex) {
-    if (currentFaceIndex >= lastFaceIndex) {
-      World world = Bukkit.getWorlds().get(0);
-
-      ArrayList<Location> locs = new ArrayList<Location>();
-      locs.add(new Location(world, 500, 60, 500));
-      locs.add(new Location(world, 1500, 60, 1500));
-      locs.add(new Location(world, 2500, 60, 2500));
-      locs.add(new Location(world, 3500, 60, 3500));
-      locs.add(new Location(world, 4500, 60, 4500));
-      locs.add(new Location(world, 5500, 60, 5500));
-
-      cube = new CubeWorld(locs,cubeWorldRadius,this);
-      return;
-    }
-
-    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "/schem load face" + currentFaceIndex);
-    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "/pos1 " +
-        faceCenters[currentFaceIndex].getBlockX() + "," +
-        faceCenters[currentFaceIndex].getBlockY() + "," +
-        faceCenters[currentFaceIndex].getBlockZ());
-    Bukkit.getScheduler().runTaskLater(this, new Runnable() {
-      public void run() {
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "/paste");
-        pasteFaceCentersOverTime(currentFaceIndex + 1, lastFaceIndex);
-      }
-    }, 100L); //5 seconds
-  }
 
   @Override
   public void onEnable() {
@@ -262,7 +262,8 @@ public class CubicWorlds extends JavaPlugin implements Listener {
       System.out.println("Creating new cube world");
       deleteFile(creatingWorldStateFileName);
 
-      copyFaceCentersFromSchematics();
+      //CHANGE HTIS TO NEW ONE
+//      copyFaceCentersFromSchematics();
 
 
       //this will get called before the delay:
@@ -369,7 +370,16 @@ public class CubicWorlds extends JavaPlugin implements Listener {
   private Location locOfSwitchStart = null;
 
   @EventHandler
+  public void onBlockBreak(BlockBreakEvent event) {
+    if (cube == null) {
+      return;
+    }
+
+  }
+
+  @EventHandler
   public void onPlayerMove(PlayerMoveEvent event) {
+//    CubeWorld cube = null;
     if (cube == null) {
       return;
     }

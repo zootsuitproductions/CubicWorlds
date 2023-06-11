@@ -21,73 +21,34 @@ public class CubeWorld {
   Vector3d[] cubeFaceCenters = new Vector3d[6];
   WorldPermutation[] worldPermutations = new WorldPermutation[6];
 
+  public static final AxisTransformation[] transformations = new AxisTransformation[] {
+      AxisTransformation.TOP,
+      AxisTransformation.FRONT,
+      AxisTransformation.BOTTOM,
+      AxisTransformation.BACK,
+      AxisTransformation.LEFT,
+      AxisTransformation.RIGHT
+  };
 
-  public CubeWorld(List<Location> faceCenters, int radius, Plugin plugin) {
+  public CubeWorld(Location pasteCenter, int radius, int spaceBetween) {
     this.radius = radius;
-    Location center = faceCenters.get(0).clone().subtract(0,radius,0);
+    int spaceBetweenCubeRotationsInWorld = spaceBetween;
+
+    //TEMP
 
     cubeFaceCenters[0] = new Vector3d(0, radius,0);
 
-    worldPermutations[0] = new WorldPermutation(faceCenters,radius,cubeFaceCenters[0],plugin, 500);
 
-    AxisTransformation[] transformations = new AxisTransformation[] {
-        AxisTransformation.TOP,
-        AxisTransformation.FRONT,
-        AxisTransformation.BOTTOM,
-        AxisTransformation.BACK,
-        AxisTransformation.LEFT,
-        AxisTransformation.RIGHT
-    };
+    worldPermutations[0] = new WorldPermutation(pasteCenter, radius, AxisTransformation.TOP, cubeFaceCenters[0]);
 
     for (int i = 1; i < transformations.length; i++) {
       cubeFaceCenters[i] = transformations[i].unapply(cubeFaceCenters[0]);
 
       worldPermutations[i] = new WorldPermutation(
           worldPermutations[0],
-          WorldPermutation.translateLocation(center, i * 1000,0,0),
+          WorldPermutation.translateLocation(pasteCenter, i * spaceBetweenCubeRotationsInWorld,0,0),
           transformations[i],
-          cubeFaceCenters[i], plugin, worldPermutations[i - 1].creationOperation);
-    }
-
-    //paste them
-    worldPermutations[AxisTransformation.transformations.length - 1].creationOperation.apply();
-
-//    for (int i = 1; i < AxisTransformation.transformations.length; i++) {
-//      cubeFaceCenters[i] = AxisTransformation.transformations[i].unapply(cubeFaceCenters[0]);
-//
-//
-//      //shift the first item to the end
-//      faceCenters.add(faceCenters.remove(0));
-//
-//      List<Location> faceCentersCopy = new ArrayList<>(faceCenters);
-//      worldPermutations[i] = new WorldPermutation(faceCentersCopy, radius, cubeFaceCenters[0], plugin,500);
-//
-//
-//      worldPermutations[i] = new WorldPermutation(
-//          worldPermutations[0],
-//          WorldPermutation.translateLocation(pasteCenter, i * spaceBetweenCubeRotationsInWorld,0,0),
-//          AxisTransformation.transformations[i],
-//          cubeFaceCenters[i]);
-//    }
-  }
-  public CubeWorld(Location center, Location pasteCenter, int radius) {
-    this.radius = radius;
-    int spaceBetweenCubeRotationsInWorld = radius*5 + 30;
-
-    cubeFaceCenters[0] = new Vector3d(0, radius,0);
-
-
-
-    worldPermutations[0] = new WorldPermutation(center, pasteCenter, radius, AxisTransformation.TOP, cubeFaceCenters[0]);
-
-    for (int i = 1; i < AxisTransformation.transformations.length; i++) {
-      cubeFaceCenters[i] = AxisTransformation.transformations[i].unapply(cubeFaceCenters[0]);
-
-//      worldPermutations[i] = new WorldPermutation(
-//          worldPermutations[0],
-//          WorldPermutation.translateLocation(pasteCenter, i * spaceBetweenCubeRotationsInWorld,0,0),
-//          AxisTransformation.transformations[i],
-//          cubeFaceCenters[i]);
+          cubeFaceCenters[i]);
     }
   }
 
@@ -115,24 +76,7 @@ public class CubeWorld {
     }
   }
 
-//  private void acc
-
   public void rotTimer(Player p, Vector velocity, Plugin plugin, float rotateToThisYaw, Location rotatedLocation, WorldPermutation currentRot, WorldPermutation closestFace) {
-
-    //do head rotation in movement event!!!!
-    //change thje loookm direction if falling
-
-
-//    loadChunkRadius(rotatedLocation, 2);
-
-//    GameMode currentMode = p.getGameMode();
-//    p.setGameMode(GameMode.SPECTATOR);
-
-    //create an invisible armor stand and have player spectate it
-//    ArmorStand a = (ArmorStand) p.getWorld().spawnEntity(pLoc, EntityType.ARMOR_STAND);
-//    a.setGravity(false);
-//    a.setVisible(false);
-//    p.setSpectatorTarget(a);
 
     int ticksToRotateOver = 5;
 

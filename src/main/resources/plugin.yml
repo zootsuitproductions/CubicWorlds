@@ -19,3 +19,9 @@ commands:
   rot:
     description: Copies and pastes a block selection
     usage: /copypaste <copy/paste>
+  pasteWorld:
+    description: Copies and pastes a block selection
+    usage: /copypaste <copy/paste>
+  pastePErm:
+    description: Copies and pastes a block selection
+    usage: /copypaste <copy/paste>

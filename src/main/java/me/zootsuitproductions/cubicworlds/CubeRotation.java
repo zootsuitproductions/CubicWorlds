@@ -1,34 +1,62 @@
 package me.zootsuitproductions.cubicworlds;
 
-import java.util.List;
+import static me.zootsuitproductions.cubicworlds.AxisTransformation.transformations;
+
 import org.bukkit.Location;
-import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
-import org.bukkit.plugin.Plugin;
+import org.joml.Vector2i;
 import org.joml.Vector3d;
 
-import java.util.HashMap;
-import java.util.Map;
-
-public class WorldPermutation {
+public class CubeRotation {
   public final AxisTransformation axisTransformation;
   public final Vector3d topFaceCoordinateOnMainWorld;
+
   public final Location center;
   private int radius;
+  private final CubeFaceRegion[] faces = new CubeFaceRegion[6];
+  private final Location[] faceCenters = new Location[6];
 
-  public WorldPermutation(Location pasteCenter, int radius, AxisTransformation upFace, Vector3d topFaceCoordinateOnMainWorld) {
+
+  public CubeRotation(Location centerInWorld, Location pasteCenter, int radius, AxisTransformation upFace, Vector3d topFaceCoordinateOnMainWorld) {
     this.center = pasteCenter;
     this.radius = radius;
     this.axisTransformation = upFace;
     this.topFaceCoordinateOnMainWorld = topFaceCoordinateOnMainWorld;
+
+    faceCenters[0] = translateLocation(pasteCenter, 0, radius, 0);
+
+    faceCenters[1] = translateLocation(pasteCenter, -radius, 0, 0);
+
+    faceCenters[2] = translateLocation(pasteCenter, 0, -radius, 0);
+
+    faceCenters[3] = translateLocation(pasteCenter, radius, 0, 0);
+
+    faceCenters[4] = translateLocation(pasteCenter, 0, 0, radius);
+
+    faceCenters[5] = translateLocation(pasteCenter, 0, 0, -radius);
+
+
   }
 
-  public WorldPermutation(WorldPermutation mainCube, Location pasteCenter, AxisTransformation axisTransformation, Vector3d topFaceCoordinateOnMainWorld) {
+  public CubeRotation(CubeRotation mainCube, Location pasteCenter, AxisTransformation axisTransformation, Vector3d topFaceCoordinateOnMainWorld) {
     radius = mainCube.radius;
     this.center = pasteCenter;
     this.axisTransformation = axisTransformation;
     this.topFaceCoordinateOnMainWorld = topFaceCoordinateOnMainWorld;
+
+    for (int x = -2 * radius - 1; x <= 2 * radius + 1; x++) {
+      for (int y = -2 * radius - 1; y <= 2 * radius + 1; y++) {
+        for (int z = -2 * radius - 1; z <= 2 * radius + 1; z++) {
+          Vector3d localCoordinateSource = new Vector3d(x, y, z);
+          BlockData copyBlockData = mainCube.getBlockLocationFromRelativeCoordinate(localCoordinateSource).getBlock().getBlockData();
+
+          Vector3d localCoordinateDest = axisTransformation.unapply(localCoordinateSource); //this is rotated
+          Location worldDestination = getBlockLocationFromRelativeCoordinate(localCoordinateDest);
+
+          worldDestination.getBlock().setBlockData(CubeFaceRegion.rotateBlockData(copyBlockData, axisTransformation));
+        }
+      }
+    }
   }
 
   public static Vector3d getLocalYawAxisFacing(float yaw) {
@@ -56,84 +84,14 @@ public class WorldPermutation {
     }
   }
 
-  public static Vector3d convertYawPitchToVector(float yaw, float pitch) {
-    double yawRadian = Math.toRadians(yaw);
-    double pitchRadian = Math.toRadians(pitch);
-
-    double x = -Math.sin(yawRadian);
-    double y = -Math.sin(pitchRadian);
-    double z = Math.cos(yawRadian);
-
-    // Calculate the magnitude (length) of the vector
-    double magnitude = Math.sqrt(x * x + y * y + z * z);
-
-    // Normalize the vector by dividing each component by the magnitude
-    x /= magnitude;
-    y /= magnitude;
-    z /= magnitude;
-
-    return new Vector3d(x, y, z);
-  }
-
-  //move these to utils class
-
-  public static Location setLookDirectionToVector(Location location, Vector3d vector3d) {
-    float yaw = (float) Math.toDegrees(Math.atan2(-vector3d.x, vector3d.z));
-    float pitch = (float) Math.toDegrees(Math.asin(-vector3d.y));
-
-    location.setYaw(yaw);
-    location.setPitch(pitch);
-    return location;
-  }
-
-  public static void debug(String string, Vector3d vector3d) {
-    float yaw = (float) Math.toDegrees(Math.atan2(-vector3d.x, vector3d.z));
-    float pitch = (float) Math.toDegrees(Math.asin(-vector3d.y));
-    System.out.println(string + ": yaw " + yaw + ", pitch " + pitch);
-  }
-
-  public static float getYaw(Vector3d vector3d) {
-    return (float) Math.toDegrees(Math.atan2(-vector3d.x, vector3d.z));
-  }
-
-  public static float getPitch(Vector3d vector3d) {
-    return (float) (float) Math.toDegrees(Math.asin(-vector3d.y));
-  }
-
-  public Vector3d convertLookingVectorFromOtherCubeRotation(Vector3d lookDirectionOnOther, WorldPermutation other) {
-    System.out.println("helloIN FUNC");
-
-    System.out.println("currentWorld vector : " + lookDirectionOnOther);
-    Vector3d mainCubeWorldLookDirection = other.axisTransformation.unapply(lookDirectionOnOther);
-
-    float y = getYaw(lookDirectionOnOther);
-    float y1 =  getYaw(lookDirectionOnOther);
-    float y3 =  getPitch(lookDirectionOnOther);
-    float y4 = getPitch(lookDirectionOnOther);
-
-    float y5 = getYaw(mainCubeWorldLookDirection);
-    float y6 = getYaw(mainCubeWorldLookDirection);
-    float ya = getPitch(mainCubeWorldLookDirection);
-
-    System.out.println("main world vector: " + mainCubeWorldLookDirection);
-    Vector3d newWorldLookDirection = axisTransformation.apply(mainCubeWorldLookDirection);
-
-    float y33= getYaw(newWorldLookDirection);
-    float ay = getYaw(newWorldLookDirection);
-    float y1a = getPitch(newWorldLookDirection);
-
-    System.out.println("new!! world vector: " + newWorldLookDirection);
-
-    return newWorldLookDirection;
-  }
-
-  public float convertYawFromOtherCubeRotation(float yaw, WorldPermutation other) {
+  public float convertYawFromOtherCubeRotation(float yaw, CubeRotation other) {
     Vector3d yaxAxisWorld = other.getWorldYawAxisFacing(yaw);
     System.out.println("world yaw axis: " + yaxAxisWorld);
 
-    Vector3d localYawAxis = axisTransformation.apply(yaxAxisWorld);
+    Vector3d localYawAxis = axisTransformation.unapply(yaxAxisWorld);
 
     System.out.println("local yaw axis: " + localYawAxis);
+
 
     //yaw doesnt face y so the matrix rotation fucks it
     //take into account pitch
@@ -142,21 +100,21 @@ public class WorldPermutation {
   }
 
   public Vector3d getWorldYawAxisFacing(float yaw) {
-    return axisTransformation.unapply(WorldPermutation.getLocalYawAxisFacing(yaw));
+    return axisTransformation.apply(CubeRotation.getLocalYawAxisFacing(yaw));
   }
 
 
   public Vector3d getLocalCoordinateFromWorldCoordinate(Vector3d worldCoordinate) {
-    return axisTransformation.apply(worldCoordinate);
+    return axisTransformation.unapply(worldCoordinate);
   }
-//
-//  public Location[] getFaceCenters() {
-//    return this.faceCenters.clone();
-//  }
+
+  public Location[] getFaceCenters() {
+    return this.faceCenters.clone();
+  }
 
   public Vector3d translateLocalCoordinateToThisCubeRotation(Vector3d localSource, AxisTransformation sourceAxisTransformation) {
-    Vector3d coordinateFromMainCube = sourceAxisTransformation.apply(localSource);
-    return this.axisTransformation.unapply(coordinateFromMainCube);
+    Vector3d coordinateFromMainCube = sourceAxisTransformation.unapply(localSource);
+    return this.axisTransformation.apply(coordinateFromMainCube);
   }
 
   public Location getLocationFromRelativeCoordinate(Vector3d vector) {
@@ -184,13 +142,13 @@ public class WorldPermutation {
     //THE ROUNDING IS WHAT FUCKED IT
     System.out.println("local coord " + Math.round(toReturn.x) + " " + Math.round(toReturn.y) + " " + Math.round(toReturn.z));
 
-     return toReturn;
+    return toReturn;
   } //maybe make block
 
   public Vector3d getCubeWorldCoordinate(Location loc) {
     System.out.println("coordinate before applying transform: " + getLocationRelativeToThisPermutation(loc));
     System.out.println("coordinate before applying transform: " + getLocationRelativeToThisPermutation(loc));
-    return axisTransformation.unapply(getLocationRelativeToThisPermutation(loc));
+    return axisTransformation.apply(getLocationRelativeToThisPermutation(loc));
   }
 
   public static Location translateLocation(Location loc, int xTrans, int yTrans, int zTrans) {
