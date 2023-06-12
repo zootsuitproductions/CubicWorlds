@@ -11,6 +11,7 @@ import java.util.*;
 
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
+import org.bukkit.Material;
 import org.bukkit.WorldCreator;
 import org.bukkit.WorldType;
 import org.bukkit.block.Biome;
@@ -25,20 +26,28 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockFromToEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.World;
 import org.bukkit.Location;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
+import org.joml.Vector3d;
 
 
 public class CubicWorlds extends JavaPlugin implements Listener {
 
-  Map<UUID, Long> playerLastMoveTime = new HashMap<UUID, Long>();
-  Map<UUID, Integer> playerCurrentFace = new HashMap<UUID, Integer>();
+  //TODO: calculate the average height of each edge, and put the center of the faces not actually in the center
+  //(the + x radius can be more than the - x, etc. faces dont have to be squares.
 
-//  private CubeWorld cube;
+  //TODO: also tinker with the timing of the WE pasting commands.
+  // find a quadratic scaling time so i dont have to adjust it for each size.
+  //also why is it doing every operation 5 times?
+
+  //!!!!todo:!!!!! only change face if there are no blocks above your head (walking over the edge) and blocks at feet at least 1 block drop
+
   public static String creatingWorldStateFileName = "creatingNewWorldState.txt";
 
   private static Vector[] faceCenters = new Vector[] {
@@ -84,10 +93,37 @@ public class CubicWorlds extends JavaPlugin implements Listener {
   //-------------------------------------------------------------------------------------------------
   //-------------------------------------------------------------------------------------------------
 
-  private WECubeWorld cubeWorld;
+  private WECubeWorldCreator cubeWorld;
   private CubeWorld cube;
 
   Location cubeCenter;
+
+  @EventHandler
+  public void onPlayerJoin(PlayerJoinEvent event) {
+    // Log the player's join event
+    cube.setCurrentPermutationOfPlayer(event.getPlayer());
+  }
+
+  public static void deleteFolder(File folder) {
+    File[] files = folder.listFiles();
+    if (files != null) {
+      for (File file : files) {
+        if (file.isDirectory()) {
+          deleteFolder(file);
+          System.out.println("Deleted the folder");
+        } else {
+          file.delete();
+        }
+      }
+    }
+    folder.delete();
+  }
+
+  public static String readFileToString(String filePath) throws IOException {
+    Path path = Paths.get(filePath);
+    byte[] bytes = Files.readAllBytes(path);
+    return new String(bytes);
+  }
 
   @Override
   public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
@@ -97,7 +133,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
       if (sender.hasPermission("createCubeWorld.use")) {
         try {
           cubeWorldRadius = Integer.parseInt(args[0]);
-          cubeWorld = new WECubeWorld(cubeWorldRadius,cubeWorldRadius,cubeWorldRadius);
+          cubeWorld = new WECubeWorldCreator(cubeWorldRadius,cubeWorldRadius,cubeWorldRadius);
           saveCubeWorldRadius();
         } catch (Exception e) {
           sender.sendMessage("You must specify the radius of the cube world: /createcubeworld [radius]");
@@ -109,6 +145,8 @@ public class CubicWorlds extends JavaPlugin implements Listener {
         if (args.length >= 2) {
           worldName = args[1];
         }
+
+        deleteFolder(new File(worldName));
 
         createVoidWorld(worldName);
         createAndWriteFile("world_to_change_to.txt", worldName);
@@ -122,10 +160,8 @@ public class CubicWorlds extends JavaPlugin implements Listener {
       cubeWorld.pasteWorldAtLocation(((Player) sender).getLocation(), this);
       cubeCenter = ((Player) sender).getLocation();
 
-      cube = new CubeWorld(cubeCenter,cubeWorldRadius, WECubeWorld.spacing);
+      cube = new CubeWorld(cubeCenter,cubeWorldRadius, CubeWorld.spacing);
 
-    } else if (cmd.getName().equalsIgnoreCase("pastePERM")) {
-//      new WEPermutationCreator(cubeCenter, cubeWorld.xRadius, cubeWorld.yRadius, cubeWorld.zRadius).createPerm(((Player) sender).getLocation(), this);
     } else if (cmd.getName().equalsIgnoreCase("goBackToNormalWorld")) {
       Player p = (Player) sender;
 
@@ -222,6 +258,20 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     }
   }
 
+  private void setupCubeWorld() {
+
+    cubeWorld = new WECubeWorldCreator(cubeWorldRadius,cubeWorldRadius,cubeWorldRadius);
+
+    cubeCenter = new Location(getServer().getWorlds().get(0),500,60,500);
+
+    cube = new CubeWorld(cubeCenter,cubeWorldRadius, CubeWorld.spacing);
+
+    if (shouldCreateNewCubeWorld()) {
+      cubeWorld.pasteWorldAtLocation(cubeCenter, this);
+      System.out.println("Creating new cube world");
+      deleteFile(creatingWorldStateFileName);
+    }
+  }
 
   @Override
   public void onEnable() {
@@ -230,72 +280,13 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     setupConfig();
     loadCubeWorldRadius();
 
-
-//
-//    World world = Bukkit.getWorlds().get(0);
-
-//    ArrayList<Location> locs = new ArrayList<Location>();
-//    locs.add(new Location(world, 500, 60, 500));
-//    locs.add(new Location(world, 1500, 60, 1500));
-//    locs.add(new Location(world, 2500, 60, 2500));
-//    locs.add(new Location(world, 3500, 60, 3500));
-//    locs.add(new Location(world, 4500, 60, 4500));
-//    locs.add(new Location(world, 5500, 60, 5500));
-//
-//    cubeWorldRadius = 40;
-    //need to save the face locations after quitting
-
-    //AND SAVE THE RADIUS
-
-
-    //some falling gravel from the top face might fuck things. apply the reverse pyamid of air
-    //first (copy the top face upright from another location (not 500,500), then delete it
-
-    //do this after copying shit
-//    cube = new CubeWorld(locs,cubeWorldRadius,this);
-
-
-    //remove this later, just for tesitng
-//    copyFaceCentersFromSchematics();
-
-    if (shouldCreateNewCubeWorld()) {
-      System.out.println("Creating new cube world");
-      deleteFile(creatingWorldStateFileName);
-
-      //CHANGE HTIS TO NEW ONE
-//      copyFaceCentersFromSchematics();
-
-
-      //this will get called before the delay:
-//      /*cube = */new CubeWorld(faceLocations,cubeWorldRadius,this);
-
+    //check if we are not in the normal world, outside of the cube world creation phase. if so, then  run the rest of this setup code
+    if (!Bukkit.getWorlds().get(0).getName().equalsIgnoreCase("world")) {
+      setupCubeWorld();
     }
   }
-/*
-
-    Todo:
-    - first, create new command to set the place under you a face.
-    - find out how to past over time
-
-    - make sure the chunks stay loaded
-
-    -algorithm:
-
-     */
-
-  public static int clampValueToRange(int value, int min, int max) {
-    if (value > max) {
-      return max;
-    } else if (value < min) {
-      return min;
-    }
-    return value;
-  }
-
-  List<Location> faceLocations = new ArrayList<Location>();
   private boolean readyToAddFaces = false;
   private int cubeWorldRadius;
-  private int currentFace = 0;
 
   private static void createVoidWorld(String name) {
     //check if this will delete, for general usability. not essential though.
@@ -305,7 +296,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     creator.generatorSettings("{\"layers\": [{\"block\": \"air\", \"height\": 1}, {\"block\": \"air\", \"height\": 1}], \"biome\":\"plains\"}");
     creator.generateStructures(false);
 
-    World world = creator.createWorld();
+    creator.createWorld();
   }
 
 
@@ -374,12 +365,34 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     if (cube == null) {
       return;
     }
+    Location bLoc = event.getBlock().getLocation();
+
+    WorldPermutation perm = cube.getClosestPermutation(bLoc); //make this return a pair, the perm,
+
+
+    Vector3d cubeWorldCoord = perm.getWorldCoordinate(bLoc);
+
+    cube.setBlockOnAllPerms(Material.AIR.createBlockData(), cubeWorldCoord);
 
   }
 
   @EventHandler
+  public void onBlockPlace(BlockPlaceEvent event) {
+    if (cube == null) {
+      return;
+    }
+
+    Location bLoc = event.getBlock().getLocation();
+
+    WorldPermutation perm = cube.getClosestPermutation(bLoc);
+    Vector3d cubeWorldCoord = perm.getWorldCoordinate(bLoc);
+
+    cube.setBlockOnAllPerms(event.getBlockPlaced().getBlockData(), cubeWorldCoord);
+  }
+
+  @EventHandler
   public void onPlayerMove(PlayerMoveEvent event) {
-//    CubeWorld cube = null;
+//    cube = null;
     if (cube == null) {
       return;
     }
@@ -415,12 +428,9 @@ public class CubicWorlds extends JavaPlugin implements Listener {
         }
       }
 
-      //set these back to null values when done successfully teleport!!!!INGAA
-      ///8
       //
       timeOfSwitchEdgeStart = System.currentTimeMillis();
       locOfSwitchStart = event.getTo();
-
 
     }
   }

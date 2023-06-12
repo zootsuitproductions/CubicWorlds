@@ -6,6 +6,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.util.Vector;
 import org.joml.Vector3d;
 
 import java.util.HashMap;
@@ -30,6 +31,24 @@ public class WorldPermutation {
     this.axisTransformation = axisTransformation;
     this.topFaceCoordinateOnMainWorld = topFaceCoordinateOnMainWorld;
   }
+
+  private Vector3d getRelativeCoordinate(Location loc) {
+    return new Vector3d(
+        loc.getBlockX() - center.getBlockX(),
+        loc.getBlockY() - center.getBlockY(),
+        loc.getBlockZ() - center.getBlockZ());
+  }
+
+  public Vector3d getWorldCoordinate(Location loc) {
+    return axisTransformation.unapply(getRelativeCoordinate(loc));
+  }
+
+  public Location getLocationOnThisPermFromCubeWorldCoordinate(Vector3d cubeWorldCoordinate, World world) {
+    Vector3d localCoordinate = axisTransformation.apply(cubeWorldCoordinate);
+    System.out.println("LOCAL COORD: " + localCoordinate);
+    return new Location(world, localCoordinate.x + center.getBlockX(), localCoordinate.y + center.getBlockY(), localCoordinate.z + center.getBlockZ());
+  }
+
 
   public static Vector3d getLocalYawAxisFacing(float yaw) {
     switch ((int) Math.round(yaw/90.0)) {

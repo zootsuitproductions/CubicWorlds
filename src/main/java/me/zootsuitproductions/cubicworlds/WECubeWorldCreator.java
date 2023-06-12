@@ -8,13 +8,13 @@ import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Vector;
 
-public class WECubeWorld {
+public class WECubeWorldCreator {
   public final int xRadius;
   public final int yRadius;
   public final int zRadius;
   private int currentFace = 0;
 
-  WECubeWorld(int xRadius, int yRadius, int zRadius) {
+  WECubeWorldCreator(int xRadius, int yRadius, int zRadius) {
     this.xRadius = xRadius;
     this.yRadius = yRadius;
     this.zRadius = zRadius;
@@ -38,7 +38,7 @@ public class WECubeWorld {
       new Vector(90,0,0)
   };
 
-  static int spacing = 50;
+
 
   public void pasteWorldAtLocation(Location center, Plugin plugin) {
     List<String> commands = new ArrayList<>();
@@ -49,20 +49,20 @@ public class WECubeWorld {
 
     for (int i = 0; i < 6; i++) {
       commands.add("/schem load face" + i);
-      delays.add(20);
+      delays.add(20*6);
 
       Vector rotation = faceRotationValues[i];
       commands.add("/rotate " + rotation.getBlockY() + " " + rotation.getBlockX() + " "
           + rotation.getBlockZ());
 
-      delays.add(10);
+      delays.add(10*6);
 
       commands.add(
           "/pos1 " + center.getBlockX() + "," + center.getBlockY() + "," + center.getBlockZ());
       delays.add(0);
 
       commands.add("/paste -a");
-      delays.add(5);
+      delays.add(5*6);
     }
 
     for (int currentRotation = 1; currentRotation < permRotationValues.length; currentRotation++) {
@@ -79,19 +79,19 @@ public class WECubeWorld {
             delays.add(0);
 
             commands.add("/copy -be");
-            delays.add(20);
+            delays.add(20*3);
 
             Vector rotation = permRotationValues[currentRotation];
             commands.add("/rotate " + rotation.getBlockY() + " " + rotation.getBlockX() + " "
                 + rotation.getBlockZ());
-            delays.add(10);
+            delays.add(10*3);
 
-            commands.add("/pos1 " + (center.getBlockX() + currentRotation * spacing) + ","
+            commands.add("/pos1 " + (center.getBlockX() + currentRotation * CubeWorld.spacing) + ","
                 + (center.getBlockY()) + "," + (center.getBlockZ()));
             delays.add(0);
 
             commands.add("/paste -a");
-            delays.add(5);
+            delays.add(5*3);
           }
         }
       }
@@ -110,7 +110,6 @@ public class WECubeWorld {
   }
 
   public void addFace(Location faceCenter) {
-
     if (currentFace > 5) {
       return;
     }
