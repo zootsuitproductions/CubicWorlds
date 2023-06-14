@@ -7,11 +7,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.WorldType;
 import org.bukkit.block.Biome;
@@ -29,8 +32,10 @@ import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.event.player.PlayerToggleFlightEvent;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.World;
 import org.bukkit.Location;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
@@ -38,6 +43,9 @@ import org.joml.Vector3d;
 
 
 public class CubicWorlds extends JavaPlugin implements Listener {
+
+  //todo jun 13 see if the new code pasting code is working with a small radius
+
 
   //TODO: calculate the average height of each edge, and put the center of the faces not actually in the center
   //(the + x radius can be more than the - x, etc. faces dont have to be squares.
@@ -48,6 +56,8 @@ public class CubicWorlds extends JavaPlugin implements Listener {
 
   //!!!!todo:!!!!! only change face if there are no blocks above your head (walking over the edge) and blocks at feet at least 1 block drop
 
+
+  //todo: switching back when walking backwards should align views
   public static String creatingWorldStateFileName = "creatingNewWorldState.txt";
 
   private static Vector[] faceCenters = new Vector[] {
@@ -100,7 +110,12 @@ public class CubicWorlds extends JavaPlugin implements Listener {
 
   @EventHandler
   public void onPlayerJoin(PlayerJoinEvent event) {
-    // Log the player's join event
+    cube.setCurrentPermutationOfPlayer(event.getPlayer());
+  }
+
+  @EventHandler
+  public void onPlayerRespawn(PlayerRespawnEvent event) {
+    System.out.println();
     cube.setCurrentPermutationOfPlayer(event.getPlayer());
   }
 
@@ -135,6 +150,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
           cubeWorldRadius = Integer.parseInt(args[0]);
           cubeWorld = new WECubeWorldCreator(cubeWorldRadius,cubeWorldRadius,cubeWorldRadius);
           saveCubeWorldRadius();
+          cubeWorld.saveFacesAroundLocation(((Player) sender).getLocation(),this);
         } catch (Exception e) {
           sender.sendMessage("You must specify the radius of the cube world: /createcubeworld [radius]");
           return true;
@@ -280,10 +296,19 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     setupConfig();
     loadCubeWorldRadius();
 
+    this.overworld = Bukkit.getWorlds().get(0);
+
     //check if we are not in the normal world, outside of the cube world creation phase. if so, then  run the rest of this setup code
-    if (!Bukkit.getWorlds().get(0).getName().equalsIgnoreCase("world")) {
+    if (!overworld.getName().equalsIgnoreCase("world")) {
       setupCubeWorld();
     }
+
+    Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
+      @Override
+      public void run() {
+        switchPlayerPermutationsIfNecessaryRepeatingTask();
+      }
+    }, 20L, 5L);
   }
   private boolean readyToAddFaces = false;
   private int cubeWorldRadius;
@@ -314,7 +339,6 @@ public class CubicWorlds extends JavaPlugin implements Listener {
         writer.write(content);
         System.out.println("Content written to the file successfully.");
       }
-
     } catch (IOException e) {
       e.printStackTrace();
     }
@@ -372,7 +396,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
 
     Vector3d cubeWorldCoord = perm.getWorldCoordinate(bLoc);
 
-    cube.setBlockOnAllPerms(Material.AIR.createBlockData(), cubeWorldCoord);
+    cube.setBlockOnAllPermsExcept(Material.AIR.createBlockData(), cubeWorldCoord, perm);
 
   }
 
@@ -382,58 +406,144 @@ public class CubicWorlds extends JavaPlugin implements Listener {
       return;
     }
 
+
     Location bLoc = event.getBlock().getLocation();
 
     WorldPermutation perm = cube.getClosestPermutation(bLoc);
     Vector3d cubeWorldCoord = perm.getWorldCoordinate(bLoc);
 
-    cube.setBlockOnAllPerms(event.getBlockPlaced().getBlockData(), cubeWorldCoord);
+    cube.setBlockOnAllPermsExcept(event.getBlockPlaced().getBlockData(), cubeWorldCoord, perm);
   }
 
-  @EventHandler
-  public void onPlayerMove(PlayerMoveEvent event) {
-//    cube = null;
+  private World overworld;
+
+  private List<Player> playersToTeleportToNewCubePerm = new ArrayList<>();
+  private List<Location> initialLocationsOfTeleportingPlayers = new ArrayList<>();
+
+
+  private final Plugin pl = this;
+
+
+  private void switchPlayerPermutationsIfNecessaryRepeatingTask() {
     if (cube == null) {
       return;
     }
 
-    Player p = event.getPlayer();
+    overworld.getPlayers().forEach(p ->
+    {
+      if (cube.shouldPlayerBeTeleportedToNewFace(p)) {
+        playersToTeleportToNewCubePerm.add(p);
+        initialLocationsOfTeleportingPlayers.add(p.getLocation());
+      }
+    });
 
-    if (cube.playerIsReadyToTeleport.getOrDefault(p.getUniqueId(), true)) {
-      if (cube.shouldPlayerBeTeleportedToNewFace(p)) { // code is duplicated jhere...
-        if (timeOfSwitchEdgeStart > 0) {
-          long timeDifferenceBetweenMoves = System.currentTimeMillis() - timeOfSwitchEdgeStart;
-          if (timeDifferenceBetweenMoves == 0) {
-            return;
-          }
 
-          Location displacement = event.getTo().clone().subtract(locOfSwitchStart);
+    Bukkit.getScheduler().runTaskLater(this, new Runnable() {
+      @Override
+      public void run() {
+        for (int i = 0; i < playersToTeleportToNewCubePerm.size(); i++) {
+          Player p = playersToTeleportToNewCubePerm.get(i);
+          Location displacement = p.getLocation().subtract(initialLocationsOfTeleportingPlayers.get(i));
 
           double distanceTraveled = displacement.length(); // Calculate the distance traveled using the length() method
-          double timeInSeconds =
-              timeDifferenceBetweenMoves / 1000.0; // Convert milliseconds to seconds
+          double timeInSeconds = 0.05;
 
-          double speed =
-              distanceTraveled / timeInSeconds; // Calculate the speed in blocks per second
+          double speed = distanceTraveled / timeInSeconds; // Calculate the speed in blocks per second
 
           Vector velocity = new Vector(displacement.getX() / timeInSeconds,
-              displacement.getY() / timeInSeconds, displacement.getY() / timeInSeconds);
-          //find each axis speed
+              displacement.getY() / timeInSeconds, displacement.getZ() / timeInSeconds);
 
-          if (cube.teleportToClosestFace(p, velocity, this)) {
-            timeOfSwitchEdgeStart = -1;
-            locOfSwitchStart = null;
+
+
+          if (cube.teleportToClosestFace(p, velocity, pl)) {
+              int duration = 20; // Duration of the effect in ticks (20 ticks = 1 second)
+              int amplifier = 1; // The level of the effect
+
           }
-
         }
+
+        playersToTeleportToNewCubePerm.clear();
+        initialLocationsOfTeleportingPlayers.clear();
       }
-
-      //
-      timeOfSwitchEdgeStart = System.currentTimeMillis();
-      locOfSwitchStart = event.getTo();
-
-    }
+    }, 1);
   }
+
+
+//
+//  @EventHandler
+//  public void onPlayerMove(PlayerMoveEvent event) {
+//    if (true) {
+//      return;
+//    }
+//    if (cube == null) {
+//      return;
+//    }
+//
+//    Player p = event.getPlayer();
+//    UUID id = p.getUniqueId();
+//
+//    if (cube.playerIsReadyToTeleport.getOrDefault(id, true)) {
+//      if (cube.shouldPlayerBeTeleportedToNewFace(p)) {
+//        if (cube.playerLastMoveTime.getOrDefault(id, -1L) > 0) {
+//
+//          long timeDifferenceBetweenMoves = System.currentTimeMillis() - timeOfSwitchEdgeStart;
+//
+//          if (timeDifferenceBetweenMoves == 0) {
+//            p.sendMessage("false " + timeDifferenceBetweenMoves);
+//            return;
+//          }
+//
+//
+//          p.sendMessage("time diff: " + timeDifferenceBetweenMoves);
+//
+//          Location displacement = event.getTo().clone().subtract(locOfSwitchStart);
+//
+//          double distanceTraveled = displacement.length(); // Calculate the distance traveled using the length() method
+//          double timeInSeconds =
+//              timeDifferenceBetweenMoves / 1000.0; // Convert milliseconds to seconds
+//
+//          double speed =
+//              distanceTraveled / timeInSeconds; // Calculate the speed in blocks per second
+//
+//          Vector velocity = new Vector(displacement.getX() / timeInSeconds,
+//              displacement.getY() / timeInSeconds, displacement.getY() / timeInSeconds);
+//
+//            if (cube.teleportToClosestFace(p, velocity, this)) {
+//              int duration = 20; // Duration of the effect in ticks (20 ticks = 1 second)
+//              int amplifier = 1; // The level of the effect
+//
+////              p.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, duration, amplifier));
+//
+//              //TODO: make the"line of scrimmage" in the middle of the cube face centers. the world faces
+//              //shouldnt be square. imagine a rectanguar box for the world. on the right edge the distance is way closer to the right face
+//              //but it shouldnt flip yet
+//
+//              //make an algorithm thats goes x and z layer by layer, find the y height on the top face of the cube that its supposed to match with,
+//              //and the y height on the bottom face, and transforms all the blocks on that layer up or down to match up.
+//              //will also need to multiply.
+//
+//              //todo: do linear interpolation of the cut out pieces on edges (when theres a hill), and instead of adding 6 faces
+//              //manually use the adjacent ones
+//
+//
+//              cube.playerLastMoveTime.put(id, -1L);
+//              locOfSwitchStart = null;
+//            }
+////          }
+//          //find each axis speed
+//
+//
+//
+//        }
+//      }
+//
+//      //
+//      cube.playerLastMoveTime.put(id, System.currentTimeMillis());
+//
+//      locOfSwitchStart = event.getTo();
+//
+//    }
+//  }
 
   private static int calculateLevitationLevel(double horizontalSpeed) {
     if (horizontalSpeed == 0) {

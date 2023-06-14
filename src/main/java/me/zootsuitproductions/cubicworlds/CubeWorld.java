@@ -5,13 +5,13 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 import org.joml.Vector3d;
@@ -20,6 +20,7 @@ public class CubeWorld {
   private final int radius;
   Map<UUID, WorldPermutation> currentPermutationOfPlayer = new HashMap<>();
   Map<UUID, Boolean> playerIsReadyToTeleport = new HashMap<>();
+  Map<UUID, Long> playerLastMoveTime = new HashMap<>();
   Vector3d[] cubeFaceCenters = new Vector3d[6];
   WorldPermutation[] worldPermutations = new WorldPermutation[6];
 
@@ -37,10 +38,13 @@ public class CubeWorld {
       AxisTransformation.RIGHT
   };
 
-  public void setBlockOnAllPerms(BlockData blockData, Vector3d cubeWorldCoordinate) {
+  public void setBlockOnAllPermsExcept(BlockData blockData, Vector3d cubeWorldCoordinate, WorldPermutation dontSetOnThisOne) {
     //this is a bit redundant/inefficient. for the og perm it updates it even though it doesnt need to.
+    int skipIndex = dontSetOnThisOne.index;
     for (int i = 0; i < worldPermutations.length; i++) {
-
+      if (i == skipIndex) {
+        continue;
+      }
 
       Location loc = worldPermutations[i].getLocationOnThisPermFromCubeWorldCoordinate(cubeWorldCoordinate, world);
 
@@ -65,6 +69,8 @@ public class CubeWorld {
       System.out.println("too far away");
       return worldPermutations[0];
     }
+    System.out.println(location);
+    System.out.println("new perm: " + worldPermutations[thousandsPlace].index);
     return worldPermutations[thousandsPlace];
   }
 
@@ -76,7 +82,6 @@ public class CubeWorld {
 
   public void setCurrentPermutationOfPlayer(Player player) {
     currentPermutationOfPlayer.put(player.getUniqueId(), getClosestPermutation(player.getLocation()));
-
   }
 
 
@@ -89,7 +94,7 @@ public class CubeWorld {
 
 
     cubeFaceCenters[0] = new Vector3d(0, radius,0);
-    worldPermutations[0] = new WorldPermutation(pasteCenter, radius, AxisTransformation.TOP, cubeFaceCenters[0]);
+    worldPermutations[0] = new WorldPermutation(pasteCenter, radius, AxisTransformation.TOP, cubeFaceCenters[0], 0);
 
     ChunkUtils.forceLoadChunksAroundLocation(pasteCenter, radius);
 
@@ -103,7 +108,7 @@ public class CubeWorld {
           worldPermutations[0],
           WorldPermutation.translateLocation(pasteCenter, i * spaceBetweenCubeRotationsInWorld,0,0),
           transformations[i],
-          cubeFaceCenters[i]);
+          cubeFaceCenters[i], i);
     }
 
 
@@ -126,8 +131,8 @@ public class CubeWorld {
 
   public void rotTimer(Player p, Vector velocity, Plugin plugin, float rotateToThisYaw, Location rotatedLocation, WorldPermutation currentRot, WorldPermutation closestFace) {
 
-    p.sendMessage("rotating");
-    int ticksToRotateOver = 5;
+    p.sendMessage("velocity: " + velocity);
+    int ticksToRotateOver = 1;
 
     float degreeDifference = (rotateToThisYaw - p.getLocation().getYaw());
     if (degreeDifference > 180) {
@@ -154,15 +159,14 @@ public class CubeWorld {
 //          p.setGameMode(currentMode);
 //          a.remove();
           currentPermutationOfPlayer.put(p.getUniqueId(), closestFace);
-
-          startTimerTillPlayerCanChangeFacesAgain(p.getUniqueId(), plugin);
+          p.setVelocity(new Vector(0,0,0));
+//          startTimerTillPlayerCanChangeFacesAgain(p.getUniqueId(), plugin);
           cancel();
           return;
         }
 
-//        Location aLoc = a.getLocation();
 
-//        pLoc.setYaw(pLoc.getYaw() + degreesToRotatePerTick);
+        pLoc.setYaw(pLoc.getYaw() + degreesToRotatePerTick);
 
         //can update this dynamically to compensate for mouse movement
 
@@ -170,13 +174,19 @@ public class CubeWorld {
 
 //        p.sendMessage("rot " + counter + ": " + pLoc.getYaw());
 //        p.sendMessage("deg per Tick: " + degreesToRotatePerTick);
-//        p.teleport(pLoc);
+
+        //rotate the velocity vector instead
+        p.teleport(pLoc);
 
         if (counter == ticksToRotateOver - 1) {
           Location rotatedLocation = getMinecraftWorldLocationOnOtherCube(currentRot, closestFace, p.getLocation());
-//          p.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION,20, 2));
 
           p.teleport(rotatedLocation);
+          Vector rotatedVelocity = currentRot.rotateVectorToOtherCube(velocity, closestFace);
+          rotatedVelocity.setY(0);
+
+          p.setVelocity(rotatedVelocity.multiply(0.3));
+
         }
 
         counter ++;
@@ -212,15 +222,17 @@ public class CubeWorld {
   public boolean shouldPlayerBeTeleportedToNewFace(Player player) {
     Location loc = player.getLocation();
 
-    Location eyeLocation = loc.add(0,1.62,0);
-
     WorldPermutation currentRot = currentPermutationOfPlayer.getOrDefault(player.getUniqueId(), worldPermutations[0]);
 
-    Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(eyeLocation);
-    WorldPermutation closestFace = findClosestFaceToCubeWorldCoordinate(cubeWorldCoordinateOfPlayer);
-
-    return (closestFace != currentRot);
+    return currentRot.isLocationOffOfFaceRadius(player.getLocation());
+//
+//    Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(eyeLocation);
+//    WorldPermutation closestFace = findClosestFaceToCubeWorldCoordinate(cubeWorldCoordinateOfPlayer);
+//
+//    return (closestFace != currentRot);
   }
+
+
 
   public boolean teleportToClosestFace(Player player, Vector velocity, Plugin plugin) {
     UUID uuid = player.getUniqueId();
@@ -245,6 +257,9 @@ public class CubeWorld {
 
     rotTimer(player, velocity, plugin, desiredYawForSeamlessSwitch, actualWorldLocationToTeleportTo, currentRot, closestFace);
 
+
+
+
     return true;
 
   }
@@ -254,6 +269,14 @@ public class CubeWorld {
 //  }
 
   private WorldPermutation findClosestFaceToCubeWorldCoordinate(Vector3d mainCubeWorldCoordinate) {
+    //      AxisTransformation.TOP,
+    //      AxisTransformation.FRONT,
+    //      AxisTransformation.BOTTOM,
+    //      AxisTransformation.BACK,
+    //      AxisTransformation.LEFT,
+    //      AxisTransformation.RIGHT
+
+
     int closestFaceIndex = 0;
     double closestDistance = mainCubeWorldCoordinate.distance(cubeFaceCenters[0]);
 

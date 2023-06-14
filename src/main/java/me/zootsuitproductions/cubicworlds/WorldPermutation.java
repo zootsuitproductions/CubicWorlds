@@ -18,18 +18,33 @@ public class WorldPermutation {
   public final Location center;
   private int radius;
 
-  public WorldPermutation(Location pasteCenter, int radius, AxisTransformation upFace, Vector3d topFaceCoordinateOnMainWorld) {
+  public final int index;
+
+  public WorldPermutation(Location pasteCenter, int radius, AxisTransformation upFace, Vector3d topFaceCoordinateOnMainWorld, int index) {
     this.center = pasteCenter;
     this.radius = radius;
     this.axisTransformation = upFace;
+    this.index = index;
     this.topFaceCoordinateOnMainWorld = topFaceCoordinateOnMainWorld;
   }
 
-  public WorldPermutation(WorldPermutation mainCube, Location pasteCenter, AxisTransformation axisTransformation, Vector3d topFaceCoordinateOnMainWorld) {
+  public WorldPermutation(WorldPermutation mainCube, Location pasteCenter, AxisTransformation axisTransformation, Vector3d topFaceCoordinateOnMainWorld, int index) {
     radius = mainCube.radius;
     this.center = pasteCenter;
     this.axisTransformation = axisTransformation;
+    this.index = index;
     this.topFaceCoordinateOnMainWorld = topFaceCoordinateOnMainWorld;
+  }
+
+  public Vector rotateVectorToOtherCube(Vector vector, WorldPermutation other) {
+    Vector3d v3 = other.axisTransformation.apply(axisTransformation.unapply(new Vector3d(vector.getX(), vector.getY(), vector.getZ())));
+    return new Vector(v3.x, v3.y, v3.z);
+  }
+
+  public boolean isLocationOffOfFaceRadius(Location loc) {
+    Vector3d relative = getRelativeCoordinate(loc);
+    //potential for reading which face to rotate to from whether its pos or neg x or z.
+    return (Math.abs(relative.x) > radius || Math.abs(relative.z) > radius || relative.y < 0);
   }
 
   private Vector3d getRelativeCoordinate(Location loc) {
