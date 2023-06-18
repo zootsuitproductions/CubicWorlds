@@ -117,6 +117,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
   public void onPlayerRespawn(PlayerRespawnEvent event) {
     System.out.println();
     cube.setCurrentPermutationOfPlayer(event.getPlayer());
+    cube.playerIsReadyToTeleport.put(event.getPlayer().getUniqueId(), false);
   }
 
   public static void deleteFolder(File folder) {
@@ -199,43 +200,45 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     } else if (cmd.getName().equalsIgnoreCase("rot")) {
       Player p = (Player) sender;
 
-      if (cube.playerIsReadyToTeleport.getOrDefault(p.getUniqueId(), true)) {
-        if (cube.shouldPlayerBeTeleportedToNewFace(p)) { // code is duplicated jhere...
-          if (timeOfSwitchEdgeStart > 0) {
-//            long timeDifferenceBetweenMoves = System.currentTimeMillis() - timeOfSwitchEdgeStart;
-//            if (timeDifferenceBetweenMoves == 0) {
-//              return true;
+
+//
+//      if (cube.playerIsReadyToTeleport.getOrDefault(p.getUniqueId(), true)) {
+//        if (cube.shouldPlayerBeTeleportedToNewFace(p)) { // code is duplicated jhere...
+//          if (timeOfSwitchEdgeStart > 0) {
+////            long timeDifferenceBetweenMoves = System.currentTimeMillis() - timeOfSwitchEdgeStart;
+////            if (timeDifferenceBetweenMoves == 0) {
+////              return true;
+////            }
+//
+////            Location displacement = event.getTo().clone().subtract(locOfSwitchStart);
+//
+//            double distanceTraveled = 1; // Calculate the distance traveled using the length() method
+//            double timeInSeconds =
+//                1000 / 1000.0; // Convert milliseconds to seconds
+//
+//            double speed =
+//                distanceTraveled / timeInSeconds; // Calculate the speed in blocks per second
+//
+//            Vector velocity = new Vector(1 / timeInSeconds,
+//                1 / timeInSeconds, 1 / timeInSeconds);
+//            //find each axis speed
+//
+//            if (cube.teleportToClosestFace(p, velocity, this)) {
+//              timeOfSwitchEdgeStart = -1;
+//              locOfSwitchStart = null;
 //            }
-
-//            Location displacement = event.getTo().clone().subtract(locOfSwitchStart);
-
-            double distanceTraveled = 1; // Calculate the distance traveled using the length() method
-            double timeInSeconds =
-                1000 / 1000.0; // Convert milliseconds to seconds
-
-            double speed =
-                distanceTraveled / timeInSeconds; // Calculate the speed in blocks per second
-
-            Vector velocity = new Vector(1 / timeInSeconds,
-                1 / timeInSeconds, 1 / timeInSeconds);
-            //find each axis speed
-
-            if (cube.teleportToClosestFace(p, velocity, this)) {
-              timeOfSwitchEdgeStart = -1;
-              locOfSwitchStart = null;
-            }
-
-          }
-        }
-
-        //set these back to null values when done successfully teleport!!!!INGAA
-        ///8
-        //
-        timeOfSwitchEdgeStart = System.currentTimeMillis();
-//        locOfSwitchStart = event.getTo();
-
-
-      }
+//
+//          }
+//        }
+//
+//        //set these back to null values when done successfully teleport!!!!INGAA
+//        ///8
+//        //
+//        timeOfSwitchEdgeStart = System.currentTimeMillis();
+////        locOfSwitchStart = event.getTo();
+//
+//
+//      }
 
 //      Player p = (Player) sender;
 //      GameMode currentMode = p.getGameMode();
@@ -274,11 +277,14 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     }
   }
 
+  public static int mainCubeZPos = 500;
+  public static int mainCubeXPos = 500;
+
   private void setupCubeWorld() {
 
     cubeWorld = new WECubeWorldCreator(cubeWorldRadius,cubeWorldRadius,cubeWorldRadius);
 
-    cubeCenter = new Location(getServer().getWorlds().get(0),500,60,500);
+    cubeCenter = new Location(getServer().getWorlds().get(0),mainCubeXPos,60,mainCubeZPos);
 
     cube = new CubeWorld(cubeCenter,cubeWorldRadius, CubeWorld.spacing);
 
@@ -300,6 +306,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
 
     //check if we are not in the normal world, outside of the cube world creation phase. if so, then  run the rest of this setup code
     if (!overworld.getName().equalsIgnoreCase("world")) {
+      System.out.println("setting up");
       setupCubeWorld();
     }
 
@@ -417,8 +424,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
 
   private World overworld;
 
-  private List<Player> playersToTeleportToNewCubePerm = new ArrayList<>();
-  private List<Location> initialLocationsOfTeleportingPlayers = new ArrayList<>();
+  private List<PlayerTimePosition> playerTimePositions = new ArrayList<>();
 
 
   private final Plugin pl = this;
@@ -432,38 +438,37 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     overworld.getPlayers().forEach(p ->
     {
       if (cube.shouldPlayerBeTeleportedToNewFace(p)) {
-        playersToTeleportToNewCubePerm.add(p);
-        initialLocationsOfTeleportingPlayers.add(p.getLocation());
+        playerTimePositions.add(new PlayerTimePosition(p, p.getLocation(), System.currentTimeMillis()));
       }
     });
+
 
 
     Bukkit.getScheduler().runTaskLater(this, new Runnable() {
       @Override
       public void run() {
-        for (int i = 0; i < playersToTeleportToNewCubePerm.size(); i++) {
-          Player p = playersToTeleportToNewCubePerm.get(i);
-          Location displacement = p.getLocation().subtract(initialLocationsOfTeleportingPlayers.get(i));
+        for (int i = 0; i < playerTimePositions.size(); i++) {
+          PlayerTimePosition pTimePos = playerTimePositions.get(i);
+          Player p = pTimePos.getPlayer();
 
-          double distanceTraveled = displacement.length(); // Calculate the distance traveled using the length() method
-          double timeInSeconds = 0.05;
+          Location displacement = p.getLocation().subtract(pTimePos.getLocation());
 
-          double speed = distanceTraveled / timeInSeconds; // Calculate the speed in blocks per second
+          int ticks = 1;
 
-          Vector velocity = new Vector(displacement.getX() / timeInSeconds,
-              displacement.getY() / timeInSeconds, displacement.getZ() / timeInSeconds);
+          Vector velocity = new Vector(displacement.getX() / ticks,
+              displacement.getY() / ticks, displacement.getZ() / ticks);
 
+
+          Location loc2 = p.getLocation();
 
 
           if (cube.teleportToClosestFace(p, velocity, pl)) {
-              int duration = 20; // Duration of the effect in ticks (20 ticks = 1 second)
-              int amplifier = 1; // The level of the effect
-
+            p.sendMessage("first loc:" + pTimePos.getLocation());
+            p.sendMessage("2d loc:" + loc2);
           }
         }
 
-        playersToTeleportToNewCubePerm.clear();
-        initialLocationsOfTeleportingPlayers.clear();
+        playerTimePositions.clear();
       }
     }, 1);
   }

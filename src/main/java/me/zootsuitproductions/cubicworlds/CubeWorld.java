@@ -6,7 +6,9 @@ import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -25,7 +27,7 @@ public class CubeWorld {
   WorldPermutation[] worldPermutations = new WorldPermutation[6];
 
   //if this is changed, need to also change the getClosestPerm function
-  public static int spacing = 1000;
+  public static int spacing = 100;
 
   private final World world;
 
@@ -56,22 +58,48 @@ public class CubeWorld {
     }
   }
 
+  //put them in a grid not a line
+
+
   public WorldPermutation getClosestPermutation(Location location) {
     //this only works for thousand block seperated worlds
 
-    int number = location.getBlockX();
+    int x = location.getBlockX();
+    int z = location.getBlockZ();
 
-    int thousandsPlace = (number / 1000) % 10; // Get the thousands place digit
+    int worldIndex = z;
 
-    if (thousandsPlace > 5 || thousandsPlace < 0) {
 
-      //find the closest conventionally
-      System.out.println("too far away");
-      return worldPermutations[0];
-    }
+//
+//    if (x == 1) {
+//      switch (z) {
+//        case 0:
+//          worldIndex = 3;
+//          break;
+//        case 1:
+//          worldIndex = 4;
+//          break;
+//        default:
+//          worldIndex = 5;
+//          break;
+//      }
+//    }
+
+
+//
+    worldIndex = Math.round((float) (x - CubicWorlds.mainCubeXPos) / (float) spacing);
+//
+//    int thousandsPlace = (x / 1000) % 10; // Get the thousands place digit
+//
+//    if (permNumber > 5 || permNumber < 0) {
+//
+//      //find the closest conventionally
+//      System.out.println("too far away");
+//      return worldPermutations[0];
+//    }
     System.out.println(location);
-    System.out.println("new perm: " + worldPermutations[thousandsPlace].index);
-    return worldPermutations[thousandsPlace];
+    System.out.println("new perm: " + worldPermutations[worldIndex].index);
+    return worldPermutations[worldIndex];
   }
 
   private void setCurrentPlayerPerms() {
@@ -83,6 +111,15 @@ public class CubeWorld {
   public void setCurrentPermutationOfPlayer(Player player) {
     currentPermutationOfPlayer.put(player.getUniqueId(), getClosestPermutation(player.getLocation()));
   }
+
+  private final Vector[] cubeCenterPositions = new Vector[] {
+      new Vector(0,0,0),
+      new Vector(0,0,1),
+      new Vector(0,0,2),
+      new Vector(1,0,0),
+      new Vector(1,0,1),
+      new Vector(1,0,2),
+  };
 
 
   public CubeWorld(Location pasteCenter, int radius, int spaceBetween) {
@@ -102,6 +139,8 @@ public class CubeWorld {
       cubeFaceCenters[i] = transformations[i].unapply(cubeFaceCenters[0]);
 
       Location center = WorldPermutation.translateLocation(pasteCenter, i * spaceBetweenCubeRotationsInWorld,0,0);
+
+//          WorldPermutation.translateLocation(pasteCenter, cubeCenterPositions[i].getBlockX() * spaceBetweenCubeRotationsInWorld,0, cubeCenterPositions[i].getBlockZ() );
       ChunkUtils.forceLoadChunksAroundLocation(center, radius);
 
       worldPermutations[i] = new WorldPermutation(
@@ -131,7 +170,6 @@ public class CubeWorld {
 
   public void rotTimer(Player p, Vector velocity, Plugin plugin, float rotateToThisYaw, Location rotatedLocation, WorldPermutation currentRot, WorldPermutation closestFace) {
 
-    p.sendMessage("velocity: " + velocity);
     int ticksToRotateOver = 1;
 
     float degreeDifference = (rotateToThisYaw - p.getLocation().getYaw());
@@ -142,11 +180,6 @@ public class CubeWorld {
     }
 
     float degreesToRotatePerTick = degreeDifference / ticksToRotateOver;
-
-    p.sendMessage("currentYaw: " + p.getLocation().getYaw());
-    p.sendMessage("rotateToThisyaw: " + rotateToThisYaw);
-    p.sendMessage("degreeDifference: " + degreeDifference);
-
 
     new BukkitRunnable() {
 
@@ -159,14 +192,14 @@ public class CubeWorld {
 //          p.setGameMode(currentMode);
 //          a.remove();
           currentPermutationOfPlayer.put(p.getUniqueId(), closestFace);
-          p.setVelocity(new Vector(0,0,0));
+//          p.setVelocity(new Vector(0,0,0));
 //          startTimerTillPlayerCanChangeFacesAgain(p.getUniqueId(), plugin);
           cancel();
           return;
         }
 
 
-        pLoc.setYaw(pLoc.getYaw() + degreesToRotatePerTick);
+//        pLoc.setYaw(pLoc.getYaw() + degreesToRotatePerTick);
 
         //can update this dynamically to compensate for mouse movement
 
@@ -176,16 +209,37 @@ public class CubeWorld {
 //        p.sendMessage("deg per Tick: " + degreesToRotatePerTick);
 
         //rotate the velocity vector instead
-        p.teleport(pLoc);
+//        p.teleport(pLoc);
 
         if (counter == ticksToRotateOver - 1) {
           Location rotatedLocation = getMinecraftWorldLocationOnOtherCube(currentRot, closestFace, p.getLocation());
 
+          Vector newLookVector = currentRot.rotateVectorToOtherCube(currentRot.getYawVector(p.getLocation()),closestFace);
+
           p.teleport(rotatedLocation);
           Vector rotatedVelocity = currentRot.rotateVectorToOtherCube(velocity, closestFace);
-          rotatedVelocity.setY(0);
 
-          p.setVelocity(rotatedVelocity.multiply(0.3));
+
+          //only add if block in front or inside player (to account for head height
+          //check on the original if there is a block directly under or nah!!!!
+//add this: new Vector(0,0.3,0)
+          p.setVelocity(rotatedVelocity);
+
+
+          //moss over the edge when creating:
+          //set all grass to moss, then do a check for moss with only air above it
+
+          //TODO: TAKE INTO ACCOUNT IF THEY ARE CROUCHED HEAD POSITION
+
+          //also crawling
+
+
+
+//          if (p.getLocation().getBlock().getBlockData().getMaterial() != Material.AIR)
+
+          //if there is a block in front of them or inside of them, effectively do an auto jump
+          //by applying velocity to y
+
 
         }
 
@@ -224,7 +278,16 @@ public class CubeWorld {
 
     WorldPermutation currentRot = currentPermutationOfPlayer.getOrDefault(player.getUniqueId(), worldPermutations[0]);
 
-    return currentRot.isLocationOffOfFaceRadius(player.getLocation());
+    Block blockUnder = loc.subtract(0,1,0).getBlock();
+
+    //zombie block on head to make normal blocks over the edge gravity\\
+
+    //block in direction of looking.
+
+    //space for their entire body:
+
+
+    return currentRot.isLocationOffOfFaceRadius(loc) /*&& blockUnder.getBlockData().getMaterial() == Material.AIR*/;
 //
 //    Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(eyeLocation);
 //    WorldPermutation closestFace = findClosestFaceToCubeWorldCoordinate(cubeWorldCoordinateOfPlayer);
@@ -241,12 +304,15 @@ public class CubeWorld {
 
     Location eyeLocation = loc.add(0,1.62,0);
 
+
     WorldPermutation currentRot = currentPermutationOfPlayer.getOrDefault(uuid, worldPermutations[0]);
+
 
     Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(eyeLocation);
     WorldPermutation closestFace = findClosestFaceToCubeWorldCoordinate(cubeWorldCoordinateOfPlayer);
 
     if (closestFace == currentRot) return false;
+
 
     //player will be teleported now, so disable until done teleporting
     playerIsReadyToTeleport.put(uuid, false);
@@ -258,8 +324,6 @@ public class CubeWorld {
     rotTimer(player, velocity, plugin, desiredYawForSeamlessSwitch, actualWorldLocationToTeleportTo, currentRot, closestFace);
 
 
-
-
     return true;
 
   }
@@ -269,13 +333,6 @@ public class CubeWorld {
 //  }
 
   private WorldPermutation findClosestFaceToCubeWorldCoordinate(Vector3d mainCubeWorldCoordinate) {
-    //      AxisTransformation.TOP,
-    //      AxisTransformation.FRONT,
-    //      AxisTransformation.BOTTOM,
-    //      AxisTransformation.BACK,
-    //      AxisTransformation.LEFT,
-    //      AxisTransformation.RIGHT
-
 
     int closestFaceIndex = 0;
     double closestDistance = mainCubeWorldCoordinate.distance(cubeFaceCenters[0]);

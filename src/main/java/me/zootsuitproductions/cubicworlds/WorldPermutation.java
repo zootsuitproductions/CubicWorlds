@@ -7,6 +7,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Vector;
+import org.joml.Vector2d;
 import org.joml.Vector3d;
 
 import java.util.HashMap;
@@ -35,6 +36,30 @@ public class WorldPermutation {
     this.index = index;
     this.topFaceCoordinateOnMainWorld = topFaceCoordinateOnMainWorld;
   }
+
+  //clamp the vector at the end
+
+
+  //the y isnt actually the y of a vector, its the pitch vector
+  public Vector getYawVector(Location location) {
+    double yaw = Math.PI * (location.getYaw() / 180);
+    double pitch = Math.PI * (location.getPitch() / 180.0);
+    double x  = -Math.sin(yaw);
+    double y  = -Math.sin(pitch);
+    double z  = Math.cos(yaw);
+    return new Vector(x,0,z);
+  }
+
+
+
+  public Vector getPitchVector(Location location) {
+    double pitch = Math.PI * (location.getPitch() / 180.0);
+    double y  = -Math.sin(pitch);
+    return new Vector(0,y,0);
+  }
+
+
+
 
   public Vector rotateVectorToOtherCube(Vector vector, WorldPermutation other) {
     Vector3d v3 = other.axisTransformation.apply(axisTransformation.unapply(new Vector3d(vector.getX(), vector.getY(), vector.getZ())));

@@ -116,20 +116,20 @@ public class WECubeWorldCreator {
     for (int i = 0; i < 6; i++) {
       System.out.println("pasting the " + i + "th permutation");
       commands.add("/schem load face" + i);
-      delays.add(20*6);
+      delays.add(20*2);
 
       Vector rotation = faceRotationValues[i];
       commands.add("/rotate " + rotation.getBlockY() + " " + rotation.getBlockX() + " "
           + rotation.getBlockZ());
 
-      delays.add(10*6);
+      delays.add(10*1);
 
       commands.add(
           "/pos1 " + center.getBlockX() + "," + center.getBlockY() + "," + center.getBlockZ());
       delays.add(0);
 
       commands.add("/paste -a");
-      delays.add(5*6);
+      delays.add(5*3);
     }
 
     for (int currentRotation = 1; currentRotation < permRotationValues.length; currentRotation++) {
@@ -146,12 +146,20 @@ public class WECubeWorldCreator {
             delays.add(0);
 
             commands.add("/copy -be");
-            delays.add(20*3);
+            delays.add(10*1);
 
             Vector rotation = permRotationValues[currentRotation];
             commands.add("/rotate " + rotation.getBlockY() + " " + rotation.getBlockX() + " "
                 + rotation.getBlockZ());
-            delays.add(10*3);
+            delays.add(10*1);
+
+
+            //paste location of cube perm
+            //todo: make not on a line: put the cubes in a 2x3 grid. update the function for finding closest cube
+            //based on this^^
+
+            //todo: then do the gravity properly
+            //bruh its here
 
             commands.add("/pos1 " + (center.getBlockX() + currentRotation * CubeWorld.spacing) + ","
                 + (center.getBlockY()) + "," + (center.getBlockZ()));
