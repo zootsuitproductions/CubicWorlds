@@ -198,7 +198,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
       sender.sendMessage("Added the current location");
 
     } else if (cmd.getName().equalsIgnoreCase("rot")) {
-      Player p = (Player) sender;
+      switchPlayerPermutationsIfNecessaryRepeatingTask();
 
 
 //
@@ -358,35 +358,6 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     }
   }
 
-  public void rotTimer(Player p, GameMode playerMode) {
-    Location pLoc = p.getLocation();
-
-    //create an invisible armor stand and have player spectate it
-    ArmorStand a = (ArmorStand) p.getWorld().spawnEntity(pLoc, EntityType.ARMOR_STAND);
-    a.setVisible(false);
-    a.setGravity(false);
-    p.setSpectatorTarget(a);
-
-    new BukkitRunnable() {
-
-      int counter = 0;
-
-      @Override
-      public void run() {
-        counter++;
-
-        pLoc.setYaw(pLoc.getYaw() + 1f);
-        a.teleport(pLoc);
-        if (counter == 20) {
-          cancel();
-          p.setGameMode(playerMode);
-          a.remove();
-        }
-
-      }
-    }.runTaskTimer(this, 0, 1);
-  }
-
 
   private long timeOfSwitchEdgeStart = -1;
   private Location locOfSwitchStart = null;
@@ -461,10 +432,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
 
           Location loc2 = p.getLocation();
 
-
           if (cube.teleportToClosestFace(p, velocity, pl)) {
-            p.sendMessage("first loc:" + pTimePos.getLocation());
-            p.sendMessage("2d loc:" + loc2);
           }
         }
 

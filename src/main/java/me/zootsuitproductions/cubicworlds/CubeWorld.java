@@ -172,14 +172,14 @@ public class CubeWorld {
 
     int ticksToRotateOver = 1;
 
-    float degreeDifference = (rotateToThisYaw - p.getLocation().getYaw());
-    if (degreeDifference > 180) {
-      degreeDifference = 360 - degreeDifference;
-    } else if (degreeDifference < -180) {
-      degreeDifference = 360 + degreeDifference;
-    }
+//    float degreeDifference = (rotateToThisYaw - p.getLocation().getYaw());
+//    if (degreeDifference > 180) {
+//      degreeDifference = 360 - degreeDifference;
+//    } else if (degreeDifference < -180) {
+//      degreeDifference = 360 + degreeDifference;
+//    }
 
-    float degreesToRotatePerTick = degreeDifference / ticksToRotateOver;
+//    float degreesToRotatePerTick = degreeDifference / ticksToRotateOver;
 
     new BukkitRunnable() {
 
@@ -214,7 +214,15 @@ public class CubeWorld {
         if (counter == ticksToRotateOver - 1) {
           Location rotatedLocation = getMinecraftWorldLocationOnOtherCube(currentRot, closestFace, p.getLocation());
 
-          Vector newLookVector = currentRot.rotateVectorToOtherCube(currentRot.getYawVector(p.getLocation()),closestFace);
+
+          Vector yawVector = currentRot.getYawVector(p.getLocation());
+          Vector newLookVector = currentRot.rotateVectorToOtherCube(yawVector,closestFace);
+
+          //need better testing workflow
+          p.sendMessage("og: " + yawVector);
+          p.sendMessage("rotated: " + newLookVector);
+
+
 
           p.teleport(rotatedLocation);
           Vector rotatedVelocity = currentRot.rotateVectorToOtherCube(velocity, closestFace);
@@ -234,8 +242,24 @@ public class CubeWorld {
           //also crawling
 
 
+          //check if the block in the same direction as the face ur transitioning to is air
 
-//          if (p.getLocation().getBlock().getBlockData().getMaterial() != Material.AIR)
+
+          //get the closest face top vector on this cube
+//          Vector3d directionOfClosestFace = currentRot.axisTransformation.apply(closestFace.topFaceCoordinateOnMainWorld).normalize();
+//          p.sendMessage("ur happy" + directionOfClosestFace);
+//
+//
+//          Location behindLoc = p.getLocation().subtract(directionOfClosestFace.x,directionOfClosestFace.y,directionOfClosestFace.z);
+//          p.sendMessage("behind loc" + behindLoc.toVector());
+//          p.sendMessage("p loc" + p.getLocation().toVector());
+//
+////
+//          if (p.getLocation().subtract(directionOfClosestFace.x,directionOfClosestFace.y,directionOfClosestFace.z).getBlock().getBlockData().getMaterial() != Material.AIR) {
+//
+//
+//            p.setVelocity(rotatedVelocity.add(new Vector(0,0.3,0)));
+//          }
 
           //if there is a block in front of them or inside of them, effectively do an auto jump
           //by applying velocity to y
@@ -249,11 +273,26 @@ public class CubeWorld {
   }
 
   private float getYawForSeamlessSwitch(
-      WorldPermutation currentCube, WorldPermutation cubeToTeleportTo) {
+      WorldPermutation currentCube, WorldPermutation cubeToTeleportTo, float playerYaw) {
+
     Vector3d faceVectorOfFaceAboutToSwitchTo = currentCube.axisTransformation.apply(
         cubeToTeleportTo.topFaceCoordinateOnMainWorld);
-    return WorldPermutation.getYawFromAxisDirectionFacing(faceVectorOfFaceAboutToSwitchTo.div(radius));
+
+
+
+    float potentialYaw = WorldPermutation.getYawFromAxisDirectionFacing(faceVectorOfFaceAboutToSwitchTo.div(radius));
+
+    System.out.println("the yaw" + potentialYaw);
+    if (Math.round(playerYaw / 90) * 90 != potentialYaw) {
+      potentialYaw = potentialYaw - 180;
+    }
+
+    return potentialYaw;
   }
+
+
+  //do this
+
 
   private Location getMinecraftWorldLocationOnOtherCube(WorldPermutation currentCube, WorldPermutation cubeToTeleportTo, Location playerLoc) {
     Location eyeLocation = playerLoc.add(0,1.62,0);
@@ -263,11 +302,15 @@ public class CubeWorld {
     localCoordOnClosestFace = localCoordOnClosestFace.sub(0, 1.62, 0);
     Location actualWorldLocationToTeleportTo = cubeToTeleportTo.getLocationFromRelativeCoordinate(localCoordOnClosestFace);
 
+
     float newYaw = cubeToTeleportTo.convertYawFromOtherCubeRotation(eyeLocation.getYaw(), currentCube);
     actualWorldLocationToTeleportTo.setYaw(newYaw);
 
     //if player looking towards axis do this
-    actualWorldLocationToTeleportTo.setPitch(eyeLocation.getPitch() - 90f);
+//    actualWorldLocationToTeleportTo.setPitch(eyeLocation.getPitch() - 90f);
+
+
+    actualWorldLocationToTeleportTo.setPitch(cubeToTeleportTo.convertPitchFromOtherCubeRotation(eyeLocation.getPitch(), eyeLocation.getYaw(), currentCube));
 
     return actualWorldLocationToTeleportTo;
 
@@ -285,6 +328,7 @@ public class CubeWorld {
     //block in direction of looking.
 
     //space for their entire body:
+
 
 
     return currentRot.isLocationOffOfFaceRadius(loc) /*&& blockUnder.getBlockData().getMaterial() == Material.AIR*/;
@@ -311,7 +355,12 @@ public class CubeWorld {
     Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(eyeLocation);
     WorldPermutation closestFace = findClosestFaceToCubeWorldCoordinate(cubeWorldCoordinateOfPlayer);
 
-    if (closestFace == currentRot) return false;
+    Vector3d directionOfClosestFace = currentRot.axisTransformation.apply(closestFace.topFaceCoordinateOnMainWorld).normalize();
+    Location behindLoc = player.getLocation().subtract(directionOfClosestFace.x,directionOfClosestFace.y,directionOfClosestFace.z);
+
+
+    if ((closestFace == currentRot) || (behindLoc.getBlock().getBlockData().getMaterial() != Material.AIR)) return false;
+
 
 
     //player will be teleported now, so disable until done teleporting
@@ -319,8 +368,9 @@ public class CubeWorld {
 
     Location actualWorldLocationToTeleportTo = getMinecraftWorldLocationOnOtherCube(currentRot, closestFace, loc);
 
-    float desiredYawForSeamlessSwitch = getYawForSeamlessSwitch(currentRot, closestFace);
+    float desiredYawForSeamlessSwitch = getYawForSeamlessSwitch(currentRot, closestFace, player.getLocation().getYaw());
 
+    player.sendMessage("yaw" + desiredYawForSeamlessSwitch);
     rotTimer(player, velocity, plugin, desiredYawForSeamlessSwitch, actualWorldLocationToTeleportTo, currentRot, closestFace);
 
 
