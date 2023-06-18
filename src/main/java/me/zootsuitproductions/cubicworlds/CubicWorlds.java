@@ -43,65 +43,11 @@ import org.joml.Vector3d;
 
 
 public class CubicWorlds extends JavaPlugin implements Listener {
-
-  //todo jun 13 see if the new code pasting code is working with a small radius
-
-
-  //TODO: calculate the average height of each edge, and put the center of the faces not actually in the center
-  //(the + x radius can be more than the - x, etc. faces dont have to be squares.
-
-  //TODO: also tinker with the timing of the WE pasting commands.
-  // find a quadratic scaling time so i dont have to adjust it for each size.
-  //also why is it doing every operation 5 times?
-
-  //!!!!todo:!!!!! only change face if there are no blocks above your head (walking over the edge) and blocks at feet at least 1 block drop
-
-
-  //todo: switching back when walking backwards should align views
   public static String creatingWorldStateFileName = "creatingNewWorldState.txt";
+  private boolean readyToAddFaces = false;
+  public int cubeWorldRadius;
 
-  private static Vector[] faceCenters = new Vector[] {
-      new Vector(500,60,500),
-      new Vector(1500,60,1500),
-      new Vector(2500,60,2500),
-      new Vector(3500,60,3500),
-      new Vector(4500,60,4500),
-      new Vector(5500,60,5500),
-  };
-
-
-  //config stuff:
-  //-------------------------------------------------------------------------------------------------
-  //-------------------------------------------------------------------------------------------------
-  private File configFile;
-  private FileConfiguration config;
-
-  private void setupConfig() {
-    configFile = new File(getDataFolder(), "config.yml");
-
-    if (!configFile.exists()) {
-      saveResource("config.yml", false);
-    }
-
-    config = YamlConfiguration.loadConfiguration(configFile);
-  }
-
-  private void saveCubeWorldRadius() {
-    config.set("cubeWorldRadius", cubeWorldRadius);
-
-    try {
-      config.save(configFile);
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-  }
-
-  private void loadCubeWorldRadius() {
-    cubeWorldRadius = config.getInt("cubeWorldRadius");
-    System.out.println("RADIUS: +" + cubeWorldRadius);
-  }
-  //-------------------------------------------------------------------------------------------------
-  //-------------------------------------------------------------------------------------------------
+  private Config config;
 
   private WECubeWorldCreator cubeWorld;
   private CubeWorld cube;
@@ -150,7 +96,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
         try {
           cubeWorldRadius = Integer.parseInt(args[0]);
           cubeWorld = new WECubeWorldCreator(cubeWorldRadius,cubeWorldRadius,cubeWorldRadius);
-          saveCubeWorldRadius();
+          config.saveCubeWorldRadius();
           cubeWorld.saveFacesAroundLocation(((Player) sender).getLocation(),this);
         } catch (Exception e) {
           sender.sendMessage("You must specify the radius of the cube world: /createcubeworld [radius]");
@@ -299,8 +245,10 @@ public class CubicWorlds extends JavaPlugin implements Listener {
   public void onEnable() {
     getServer().getPluginManager().registerEvents(this, this);
 
-    setupConfig();
-    loadCubeWorldRadius();
+    config = new Config(this);
+
+    config.setupConfig();
+    config.loadCubeWorldRadius();
 
     this.overworld = Bukkit.getWorlds().get(0);
 
@@ -317,8 +265,6 @@ public class CubicWorlds extends JavaPlugin implements Listener {
       }
     }, 20L, 5L);
   }
-  private boolean readyToAddFaces = false;
-  private int cubeWorldRadius;
 
   private static void createVoidWorld(String name) {
     //check if this will delete, for general usability. not essential though.
