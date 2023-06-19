@@ -17,8 +17,6 @@ import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 import org.joml.Vector3d;
@@ -53,7 +51,7 @@ public class CubeWorld {
 
   private void setupCubeWorld() {
 
-    WECubeWorldCreator worldCreator = new WECubeWorldCreator(radius,radius,radius);
+    WECubeWorldPaster worldCreator = new WECubeWorldPaster(radius, cubeCenterLocations);
 
     if (CubicWorlds.shouldCreateNewCubeWorld()) {
       worldCreator.pasteWorldAtLocation(mainCubeCenter, plugin);
@@ -94,11 +92,7 @@ public class CubeWorld {
           Vector velocity = new Vector(displacement.getX() / ticks,
               displacement.getY() / ticks, displacement.getZ() / ticks);
 
-
-          Location loc2 = p.getLocation();
-
-          if (teleportToClosestFace(p, velocity, plugin)) {
-          }
+          teleportToClosestFace(p, velocity, plugin);
         }
 
         playerTimePositions.clear();
@@ -126,7 +120,6 @@ public class CubeWorld {
 
   //put them in a grid not a line
 
-
   public WorldPermutation getClosestPermutation(Location location) {
     //this only works for thousand block seperated worlds
 
@@ -135,34 +128,23 @@ public class CubeWorld {
 
     int worldIndex = z;
 
-
-//
-//    if (x == 1) {
-//      switch (z) {
-//        case 0:
-//          worldIndex = 3;
-//          break;
-//        case 1:
-//          worldIndex = 4;
-//          break;
-//        default:
-//          worldIndex = 5;
-//          break;
-//      }
-//    }
+    if (x == 1) {
+      switch (z) {
+        case 0:
+          worldIndex = 3;
+          break;
+        case 1:
+          worldIndex = 4;
+          break;
+        default:
+          worldIndex = 5;
+          break;
+      }
+    }
 
 
-//
-    worldIndex = Math.round((float) (x - mainCubeXPos) / (float) spacing);
-//
-//    int thousandsPlace = (x / 1000) % 10; // Get the thousands place digit
-//
-//    if (permNumber > 5 || permNumber < 0) {
-//
-//      //find the closest conventionally
-//      System.out.println("too far away");
-//      return worldPermutations[0];
-//    }
+//    worldIndex = Math.round((float) (x - mainCubeXPos) / (float) spacing);
+
     return worldPermutations[worldIndex];
   }
 
@@ -180,7 +162,7 @@ public class CubeWorld {
     currentPermutationOfPlayer.put(player.getUniqueId(), getClosestPermutation(loc));
   }
 
-  private final Vector[] cubeCenterPositions = new Vector[] {
+  private final Vector[] cubeCenterScaledPositions = new Vector[] {
       new Vector(0,0,0),
       new Vector(0,0,1),
       new Vector(0,0,2),
@@ -188,6 +170,8 @@ public class CubeWorld {
       new Vector(1,0,1),
       new Vector(1,0,2),
   };
+
+  private final Location[] cubeCenterLocations = new Location[6];
 
 
   public CubeWorld(Location pasteCenter, int radius, int spaceBetween, Plugin plugin) {
@@ -202,18 +186,27 @@ public class CubeWorld {
     cubeFaceCenters[0] = new Vector3d(0, radius,0);
     worldPermutations[0] = new WorldPermutation(pasteCenter, radius, AxisTransformation.TOP, cubeFaceCenters[0], 0);
 
+    cubeCenterLocations[0] = mainCubeCenter;
+
     ChunkUtils.forceLoadChunksAroundLocation(pasteCenter, radius);
 
     for (int i = 1; i < transformations.length; i++) {
       cubeFaceCenters[i] = transformations[i].unapply(cubeFaceCenters[0]);
 
+      cubeCenterLocations[i] = WorldPermutation.translateLocation(mainCubeCenter,
+          cubeCenterScaledPositions[i].getBlockX() * spaceBetweenCubeRotationsInWorld,
+          cubeCenterScaledPositions[i].getBlockY() * spaceBetweenCubeRotationsInWorld,
+          cubeCenterScaledPositions[i].getBlockZ() * spaceBetweenCubeRotationsInWorld)
+      ;
       //uncomment if you want to keep all chunks loaded
-//      Location center = WorldPermutation.translateLocation(pasteCenter, i * spaceBetweenCubeRotationsInWorld,0,0);
+      Location center = WorldPermutation.translateLocation(pasteCenter, i * spaceBetweenCubeRotationsInWorld,0,0);
 //      ChunkUtils.forceLoadChunksAroundLocation(center, radius);
+
 
       worldPermutations[i] = new WorldPermutation(
           worldPermutations[0],
-          WorldPermutation.translateLocation(pasteCenter, i * spaceBetweenCubeRotationsInWorld,0,0),
+          cubeCenterLocations[i],
+//          WorldPermutation.translateLocation(pasteCenter, i * spaceBetweenCubeRotationsInWorld,0,0),
           transformations[i],
           cubeFaceCenters[i], i);
     }

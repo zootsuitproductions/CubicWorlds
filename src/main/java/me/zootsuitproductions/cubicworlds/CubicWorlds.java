@@ -10,8 +10,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -26,10 +24,8 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.Location;
-import org.bukkit.util.Vector;
 import org.joml.Vector3d;
 
 
@@ -37,11 +33,9 @@ public class CubicWorlds extends JavaPlugin implements Listener {
   public static String creatingWorldStateFileName = "creatingNewWorldState.txt";
   public int cubeWorldRadius;
   private PersistentStorage persistentStorage;
-  private WECubeWorldCreator cubeWorld;
   private CubeWorld cube;
   Location cubeCenter;
   private World overworld;
-  private List<PlayerTimePosition> playerTimePositions = new ArrayList<>();
 
   @Override
   public void onEnable() {
@@ -109,8 +103,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
           cubeWorldRadius = Integer.parseInt(args[0]);
           persistentStorage.saveCubeWorldRadius();
 
-          cubeWorld = new WECubeWorldCreator(cubeWorldRadius,cubeWorldRadius,cubeWorldRadius);
-          cubeWorld.saveFacesAroundLocation(((Player) sender).getLocation(),this);
+          new WECubeWorldSaver(cubeWorldRadius).saveFacesAroundLocation(((Player) sender).getLocation(),this);
         } catch (Exception e) {
           sender.sendMessage("You must specify the radius of the cube world: /createcubeworld [radius]");
           return true;
@@ -120,6 +113,8 @@ public class CubicWorlds extends JavaPlugin implements Listener {
         if (args.length >= 2) {
           worldName = args[1];
         }
+
+        sender.sendMessage("Creating cube world, this will take ~20 seconds. When it's done the server will close. switch your world do cube_world and start it back up");
 
         FileUtils.deleteFolder(new File(worldName));
 
