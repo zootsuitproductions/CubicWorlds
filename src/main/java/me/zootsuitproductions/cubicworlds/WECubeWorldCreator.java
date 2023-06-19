@@ -1,5 +1,7 @@
 package me.zootsuitproductions.cubicworlds;
 
+import static me.zootsuitproductions.cubicworlds.FileUtils.createAndWriteFile;
+
 import java.util.ArrayList;
 import java.util.List;
 import org.bukkit.Bukkit;
@@ -97,7 +99,7 @@ public class WECubeWorldCreator {
       delays.add(0);
     }
 
-    CubicWorlds.createAndWriteFile(CubicWorlds.creatingWorldStateFileName, "true");
+    createAndWriteFile(CubicWorlds.creatingWorldStateFileName, "true");
 
     commands.add("stop");
     delays.add(0);
@@ -217,7 +219,7 @@ public class WECubeWorldCreator {
     currentFace ++;
 
     if (currentFace > 5) {
-      CubicWorlds.createAndWriteFile(CubicWorlds.creatingWorldStateFileName, "true");
+      createAndWriteFile(CubicWorlds.creatingWorldStateFileName, "true");
       Bukkit.shutdown();
     }
   }

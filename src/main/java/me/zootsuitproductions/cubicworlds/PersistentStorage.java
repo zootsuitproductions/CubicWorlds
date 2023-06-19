@@ -4,19 +4,15 @@ import java.io.File;
 import java.io.IOException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.plugin.Plugin;
 
-public class Config {
+public class PersistentStorage {
 
   private File configFile;
   private FileConfiguration config;
   private final CubicWorlds plugin;
 
-  Config(CubicWorlds plugin) {
+  PersistentStorage(CubicWorlds plugin) {
     this.plugin = plugin;
-  }
-
-  public void setupConfig() {
     configFile = new File(plugin.getDataFolder(), "config.yml");
 
     if (!configFile.exists()) {

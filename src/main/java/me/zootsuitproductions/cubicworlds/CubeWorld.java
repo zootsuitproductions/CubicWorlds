@@ -1,9 +1,11 @@
 package me.zootsuitproductions.cubicworlds;
 
 import static me.zootsuitproductions.cubicworlds.CubicWorlds.creatingWorldStateFileName;
-import static me.zootsuitproductions.cubicworlds.CubicWorlds.deleteFile;
+import static me.zootsuitproductions.cubicworlds.FileUtils.deleteFile;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -24,7 +26,6 @@ import org.joml.Vector3d;
 public class CubeWorld {
   private final int radius;
   Map<UUID, WorldPermutation> currentPermutationOfPlayer = new HashMap<>();
-  Map<UUID, Boolean> playerIsReadyToTeleport = new HashMap<>();
   Map<UUID, Long> playerLastMoveTime = new HashMap<>();
   Vector3d[] cubeFaceCenters = new Vector3d[6];
   WorldPermutation[] worldPermutations = new WorldPermutation[6];
@@ -39,6 +40,7 @@ public class CubeWorld {
 
   private final World world;
   private final Plugin plugin;
+  private List<PlayerTimePosition> playerTimePositions = new ArrayList<>();
 
   public static final AxisTransformation[] transformations = new AxisTransformation[] {
       AxisTransformation.TOP,
@@ -58,6 +60,50 @@ public class CubeWorld {
       System.out.println("Creating new cube world");
       deleteFile(creatingWorldStateFileName);
     }
+
+  }
+
+  private void beginCheckingForPlayerTeleportations() {
+    Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, new Runnable() {
+      @Override
+      public void run() {
+        switchPlayerPermutationsIfNecessaryRepeatingTask();
+      }
+    }, 20L, 5L);
+  }
+
+  public void switchPlayerPermutationsIfNecessaryRepeatingTask() {
+    world.getPlayers().forEach(p ->
+    {
+      if (shouldPlayerBeTeleportedToNewFace(p)) {
+        playerTimePositions.add(new PlayerTimePosition(p, p.getLocation(), System.currentTimeMillis()));
+      }
+    });
+
+    Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+      @Override
+      public void run() {
+        for (int i = 0; i < playerTimePositions.size(); i++) {
+          PlayerTimePosition pTimePos = playerTimePositions.get(i);
+          Player p = pTimePos.getPlayer();
+
+          Location displacement = p.getLocation().subtract(pTimePos.getLocation());
+
+          int ticks = 1;
+
+          Vector velocity = new Vector(displacement.getX() / ticks,
+              displacement.getY() / ticks, displacement.getZ() / ticks);
+
+
+          Location loc2 = p.getLocation();
+
+          if (teleportToClosestFace(p, velocity, plugin)) {
+          }
+        }
+
+        playerTimePositions.clear();
+      }
+    }, 1);
   }
 
   public void setBlockOnAllPermsExcept(BlockData blockData, Vector3d cubeWorldCoordinate, WorldPermutation dontSetOnThisOne) {
@@ -117,8 +163,6 @@ public class CubeWorld {
 //      System.out.println("too far away");
 //      return worldPermutations[0];
 //    }
-    System.out.println(location);
-    System.out.println("new perm: " + worldPermutations[worldIndex].index);
     return worldPermutations[worldIndex];
   }
 
@@ -176,6 +220,7 @@ public class CubeWorld {
 
     setupCubeWorld();
     setCurrentPlayerPerms();
+    beginCheckingForPlayerTeleportations();
   }
 
 
@@ -373,9 +418,6 @@ public class CubeWorld {
     if ((closestFace == currentRot) || (behindLoc.getBlock().getBlockData().getMaterial() != Material.AIR)) return false;
 
 
-
-    //player will be teleported now, so disable until done teleporting
-    playerIsReadyToTeleport.put(uuid, false);
 
     Location actualWorldLocationToTeleportTo = getMinecraftWorldLocationOnOtherCube(currentRot, closestFace, loc);
 
