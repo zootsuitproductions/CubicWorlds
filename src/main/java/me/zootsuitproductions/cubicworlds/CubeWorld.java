@@ -216,7 +216,7 @@ public class CubeWorld {
   }
 
 
-  public void rotTimer(Player p, Vector velocity, Plugin plugin, float rotateToThisYaw, Location rotatedLocation, WorldPermutation currentRot, WorldPermutation closestFace) {
+  public void rotTimer(Player p, Vector velocity, Plugin plugin, Location rotatedLocation, WorldPermutation currentRot, WorldPermutation closestFace) {
 
     int ticksToRotateOver = 1;
 
@@ -234,8 +234,6 @@ public class CubeWorld {
       int counter = 0;
       @Override
       public void run() {
-        Location pLoc = p.getLocation();
-
         if (counter == ticksToRotateOver) {
           currentPermutationOfPlayer.put(p.getUniqueId(), closestFace);
           cancel();
@@ -243,12 +241,8 @@ public class CubeWorld {
         }
 
         if (counter == ticksToRotateOver - 1) {
-          Location rotatedLocation = currentRot.getMinecraftWorldLocationOnOtherCube(closestFace, p.getLocation());
-
           p.teleport(rotatedLocation);
-          Vector rotatedVelocity = currentRot.rotateVectorToOtherCube(velocity, closestFace);
-
-          p.setVelocity(rotatedVelocity);
+          p.setVelocity(velocity);
         }
 
         counter ++;
@@ -294,8 +288,7 @@ public class CubeWorld {
 
     WorldPermutation currentRot = currentPermutationOfPlayer.getOrDefault(player.getUniqueId(), worldPermutations[0]);
 
-    Block blockUnder = loc.subtract(0,1,0).getBlock();
-
+    if (currentRot == null) return false;
     //zombie block on head to make normal blocks over the edge gravity\\
 
     //block in direction of looking.
@@ -324,24 +317,22 @@ public class CubeWorld {
 
     WorldPermutation currentRot = currentPermutationOfPlayer.getOrDefault(uuid, worldPermutations[0]);
 
-    int index = currentRot.index;
-
     Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(eyeLocation);
     WorldPermutation closestFace = findClosestFaceToCubeWorldCoordinate(cubeWorldCoordinateOfPlayer);
 
     Vector3d directionOfClosestFace = currentRot.axisTransformation.apply(closestFace.topFaceCoordinateOnMainWorld).normalize();
-    Location behindLoc = player.getLocation().subtract(directionOfClosestFace.x,directionOfClosestFace.y,directionOfClosestFace.z);
 
+    //make sure the player has at least 1 block of space in the opposite direction as the face
+    //they are switching to, to make room for the players legs when they teleport
+    Location behindLoc = player.getLocation().subtract(directionOfClosestFace.x,directionOfClosestFace.y,directionOfClosestFace.z);
 
     if ((closestFace == currentRot) || (behindLoc.getBlock().getBlockData().getMaterial() != Material.AIR)) return false;
 
+    Location rotatedLocation = currentRot.getMinecraftWorldLocationOnOtherCube(closestFace, player.getLocation());
+    Vector rotatedVelocity = currentRot.rotateVectorToOtherCube(velocity, closestFace);
 
-    Location actualWorldLocationToTeleportTo = getMinecraftWorldLocationOnOtherCube(currentRot, closestFace, loc);
 
-    float desiredYawForSeamlessSwitch = getYawForSeamlessSwitch(currentRot, closestFace, player.getLocation().getYaw());
-
-    player.sendMessage("yaw" + desiredYawForSeamlessSwitch);
-    rotTimer(player, velocity, plugin, desiredYawForSeamlessSwitch, actualWorldLocationToTeleportTo, currentRot, closestFace);
+    rotTimer(player, rotatedVelocity, plugin, rotatedLocation, currentRot, closestFace);
 
 
     return true;

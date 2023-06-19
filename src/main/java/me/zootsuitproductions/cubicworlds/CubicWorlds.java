@@ -22,6 +22,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -91,7 +92,18 @@ public class CubicWorlds extends JavaPlugin implements Listener {
   @EventHandler
   public void onPlayerRespawn(PlayerRespawnEvent event) {
     if (cube == null) return;
-    cube.setCurrentPermutationOfPlayer(event.getPlayer());
+    Bukkit.getScheduler().runTaskLater(this, new Runnable() {
+      @Override
+      public void run() {
+        cube.setCurrentPermutationOfPlayer(event.getPlayer());
+      }
+    }, 2L);
+  }
+
+  @EventHandler
+  public void onPlayerDeath(PlayerDeathEvent event) {
+    if (cube == null) return;
+    cube.currentPermutationOfPlayer.put(event.getEntity().getUniqueId(), null);
   }
 
   @Override
