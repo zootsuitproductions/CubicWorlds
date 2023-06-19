@@ -2,7 +2,6 @@ name: CubicWorlds
 version: '${project.version}'
 main: me.zootsuitproductions.cubicworlds.CubicWorlds
 api-version: 1.19
-#load: STARTUP
 commands:
   createCubeWorld:
     description: Copies and pastes a block selection

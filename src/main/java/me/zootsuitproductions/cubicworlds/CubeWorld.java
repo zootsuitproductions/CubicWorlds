@@ -160,10 +160,6 @@ public class CubeWorld {
     currentPermutationOfPlayer.put(player.getUniqueId(), getClosestPermutation(player.getLocation()));
   }
 
-  public void setCurrentPermutationOfPlayerByLocation(Player player, Location loc) {
-    currentPermutationOfPlayer.put(player.getUniqueId(), getClosestPermutation(loc));
-  }
-
   private final Vector[] cubeCenterScaledPositions = new Vector[] {
       new Vector(0,0,0),
       new Vector(0,0,1),
@@ -212,6 +208,7 @@ public class CubeWorld {
           transformations[i],
           cubeFaceCenters[i], i);
     }
+
 
     setupCubeWorld();
     setCurrentPlayerPerms();
@@ -327,6 +324,7 @@ public class CubeWorld {
 
     WorldPermutation currentRot = currentPermutationOfPlayer.getOrDefault(uuid, worldPermutations[0]);
 
+    int index = currentRot.index;
 
     Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(eyeLocation);
     WorldPermutation closestFace = findClosestFaceToCubeWorldCoordinate(cubeWorldCoordinateOfPlayer);
@@ -336,7 +334,6 @@ public class CubeWorld {
 
 
     if ((closestFace == currentRot) || (behindLoc.getBlock().getBlockData().getMaterial() != Material.AIR)) return false;
-
 
 
     Location actualWorldLocationToTeleportTo = getMinecraftWorldLocationOnOtherCube(currentRot, closestFace, loc);

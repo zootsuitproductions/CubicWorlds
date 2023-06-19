@@ -91,8 +91,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
   @EventHandler
   public void onPlayerRespawn(PlayerRespawnEvent event) {
     if (cube == null) return;
-    event.getPlayer().sendMessage("loc" + event.getRespawnLocation());
-    cube.setCurrentPermutationOfPlayerByLocation(event.getPlayer(), event.getRespawnLocation());
+    cube.setCurrentPermutationOfPlayer(event.getPlayer());
   }
 
   @Override

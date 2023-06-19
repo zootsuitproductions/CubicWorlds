@@ -45,8 +45,12 @@ public class WECubeWorldPaster {
     List<String> commands = new ArrayList<>();
     List<Integer> delays = new ArrayList<>();
 
+    commands.add("gamerule spawnRadius " + (xRadius / 2));
+    delays.add(0);
+
     commands.add("/world " + mainCubeCenter.getWorld().getName());
     delays.add(0);
+
 
     for (int i = 0; i < 6; i++) {
       System.out.println("pasting the " + i + "th permutation");
