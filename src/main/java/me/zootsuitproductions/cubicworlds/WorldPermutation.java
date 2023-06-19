@@ -39,27 +39,22 @@ public class WorldPermutation {
 
   //clamp the vector at the end
 
+  public Location getMinecraftWorldLocationOnOtherCube(WorldPermutation other, Location playerLoc) {
+    Location eyeLocation = playerLoc.add(0,1.62,0);
+    Vector3d cubeWorldCoordinateOfPlayerEyes = getCubeWorldCoordinate(eyeLocation);
 
-  //the y isnt actually the y of a vector, its the pitch vector
-  public Vector getYawVector(Location location) {
-    double yaw = Math.PI * (location.getYaw() / 180.0);
-    double pitch = Math.PI * (location.getPitch() / 180.0);
-    double x  = -Math.sin(yaw);
-    double y  = -Math.sin(pitch);
-    double z  = Math.cos(yaw);
-    return new Vector(x,y,z);
+    Vector3d localCoordOnClosestFace = other.getLocalCoordinateFromWorldCoordinate(cubeWorldCoordinateOfPlayerEyes);
+    localCoordOnClosestFace = localCoordOnClosestFace.sub(0, 1.62, 0);
+    Location actualWorldLocationToTeleportTo = other.getLocationFromRelativeCoordinate(localCoordOnClosestFace);
+
+
+    float newYaw = other.convertYawFromOtherCubeRotation(eyeLocation.getYaw(), this);
+    actualWorldLocationToTeleportTo.setYaw(newYaw);
+
+    actualWorldLocationToTeleportTo.setPitch(other.convertPitchFromOtherCubeRotation(eyeLocation.getPitch(), eyeLocation.getYaw(), this));
+
+    return actualWorldLocationToTeleportTo;
   }
-
-
-
-  public Vector getPitchVector(Location location) {
-    double pitch = Math.PI * (location.getPitch() / 180.0);
-    double y  = -Math.sin(pitch);
-    return new Vector(0,y,0);
-  }
-
-
-
 
   public Vector rotateVectorToOtherCube(Vector vector, WorldPermutation other) {
     Vector3d v3 = other.axisTransformation.apply(axisTransformation.unapply(new Vector3d(vector.getX(), vector.getY(), vector.getZ())));

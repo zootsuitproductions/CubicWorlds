@@ -50,11 +50,10 @@ public class CubeWorld {
   };
 
   private void setupCubeWorld() {
-
-    WECubeWorldPaster worldCreator = new WECubeWorldPaster(radius, cubeCenterLocations);
+    WECubeWorldPaster worldPaster = new WECubeWorldPaster(radius, cubeCenterLocations);
 
     if (CubicWorlds.shouldCreateNewCubeWorld()) {
-      worldCreator.pasteWorldAtLocation(mainCubeCenter, plugin);
+      worldPaster.pasteWorldAtLocation(mainCubeCenter, plugin);
       System.out.println("Creating new cube world");
       deleteFile(creatingWorldStateFileName);
     }
@@ -101,7 +100,6 @@ public class CubeWorld {
   }
 
   public void setBlockOnAllPermsExcept(BlockData blockData, Vector3d cubeWorldCoordinate, WorldPermutation dontSetOnThisOne) {
-    //this is a bit redundant/inefficient. for the og perm it updates it even though it doesnt need to.
     int skipIndex = dontSetOnThisOne.index;
     for (int i = 0; i < worldPermutations.length; i++) {
       if (i == skipIndex) {
@@ -112,9 +110,6 @@ public class CubeWorld {
 
       loc.getBlock().setBlockData(blockData);
 
-      System.out.println("cube world coordinate: " + cubeWorldCoordinate);
-      System.out.println("VNEWsetting air at: " + loc);
-
     }
   }
 
@@ -123,8 +118,15 @@ public class CubeWorld {
   public WorldPermutation getClosestPermutation(Location location) {
     //this only works for thousand block seperated worlds
 
-    int x = location.getBlockX();
-    int z = location.getBlockZ();
+    Location relativeLoc = location.subtract(mainCubeCenter);
+
+    int x = (int) Math.round(relativeLoc.getBlockX() / 100.0);
+    int z = (int) Math.round(relativeLoc.getBlockZ() / 100.0);
+
+    System.out.println("actual: " + location);
+    System.out.println("relative: " + relativeLoc);
+    System.out.println("x: " + x);
+    System.out.println("z: " + z);
 
     int worldIndex = z;
 
@@ -238,82 +240,18 @@ public class CubeWorld {
         Location pLoc = p.getLocation();
 
         if (counter == ticksToRotateOver) {
-//          p.setGameMode(currentMode);
-//          a.remove();
           currentPermutationOfPlayer.put(p.getUniqueId(), closestFace);
-//          p.setVelocity(new Vector(0,0,0));
-//          startTimerTillPlayerCanChangeFacesAgain(p.getUniqueId(), plugin);
           cancel();
           return;
         }
 
-
-//        pLoc.setYaw(pLoc.getYaw() + degreesToRotatePerTick);
-
-        //can update this dynamically to compensate for mouse movement
-
-        //make it a natural movement
-
-//        p.sendMessage("rot " + counter + ": " + pLoc.getYaw());
-//        p.sendMessage("deg per Tick: " + degreesToRotatePerTick);
-
-        //rotate the velocity vector instead
-//        p.teleport(pLoc);
-
         if (counter == ticksToRotateOver - 1) {
-          Location rotatedLocation = getMinecraftWorldLocationOnOtherCube(currentRot, closestFace, p.getLocation());
-
-
-          Vector yawVector = currentRot.getYawVector(p.getLocation());
-          Vector newLookVector = currentRot.rotateVectorToOtherCube(yawVector,closestFace);
-
-          //need better testing workflow
-          p.sendMessage("og: " + yawVector);
-          p.sendMessage("rotated: " + newLookVector);
-
-
+          Location rotatedLocation = currentRot.getMinecraftWorldLocationOnOtherCube(closestFace, p.getLocation());
 
           p.teleport(rotatedLocation);
           Vector rotatedVelocity = currentRot.rotateVectorToOtherCube(velocity, closestFace);
 
-
-          //only add if block in front or inside player (to account for head height
-          //check on the original if there is a block directly under or nah!!!!
-//add this: new Vector(0,0.3,0)
           p.setVelocity(rotatedVelocity);
-
-
-          //moss over the edge when creating:
-          //set all grass to moss, then do a check for moss with only air above it
-
-          //TODO: TAKE INTO ACCOUNT IF THEY ARE CROUCHED HEAD POSITION
-
-          //also crawling
-
-
-          //check if the block in the same direction as the face ur transitioning to is air
-
-
-          //get the closest face top vector on this cube
-//          Vector3d directionOfClosestFace = currentRot.axisTransformation.apply(closestFace.topFaceCoordinateOnMainWorld).normalize();
-//          p.sendMessage("ur happy" + directionOfClosestFace);
-//
-//
-//          Location behindLoc = p.getLocation().subtract(directionOfClosestFace.x,directionOfClosestFace.y,directionOfClosestFace.z);
-//          p.sendMessage("behind loc" + behindLoc.toVector());
-//          p.sendMessage("p loc" + p.getLocation().toVector());
-//
-////
-//          if (p.getLocation().subtract(directionOfClosestFace.x,directionOfClosestFace.y,directionOfClosestFace.z).getBlock().getBlockData().getMaterial() != Material.AIR) {
-//
-//
-//            p.setVelocity(rotatedVelocity.add(new Vector(0,0.3,0)));
-//          }
-
-          //if there is a block in front of them or inside of them, effectively do an auto jump
-          //by applying velocity to y
-
-
         }
 
         counter ++;
@@ -328,20 +266,14 @@ public class CubeWorld {
         cubeToTeleportTo.topFaceCoordinateOnMainWorld);
 
 
-
     float potentialYaw = WorldPermutation.getYawFromAxisDirectionFacing(faceVectorOfFaceAboutToSwitchTo.div(radius));
 
-    System.out.println("the yaw" + potentialYaw);
     if (Math.round(playerYaw / 90) * 90 != potentialYaw) {
       potentialYaw = potentialYaw - 180;
     }
 
     return potentialYaw;
   }
-
-
-  //do this
-
 
   private Location getMinecraftWorldLocationOnOtherCube(WorldPermutation currentCube, WorldPermutation cubeToTeleportTo, Location playerLoc) {
     Location eyeLocation = playerLoc.add(0,1.62,0);
@@ -355,14 +287,9 @@ public class CubeWorld {
     float newYaw = cubeToTeleportTo.convertYawFromOtherCubeRotation(eyeLocation.getYaw(), currentCube);
     actualWorldLocationToTeleportTo.setYaw(newYaw);
 
-    //if player looking towards axis do this
-//    actualWorldLocationToTeleportTo.setPitch(eyeLocation.getPitch() - 90f);
-
-
     actualWorldLocationToTeleportTo.setPitch(cubeToTeleportTo.convertPitchFromOtherCubeRotation(eyeLocation.getPitch(), eyeLocation.getYaw(), currentCube));
 
     return actualWorldLocationToTeleportTo;
-
   }
 
   public boolean shouldPlayerBeTeleportedToNewFace(Player player) {
