@@ -1,5 +1,9 @@
 package me.zootsuitproductions.cubicworlds;
 
+import static me.zootsuitproductions.cubicworlds.CubeWorld.mainCubeXPos;
+import static me.zootsuitproductions.cubicworlds.CubeWorld.mainCubeZPos;
+import static me.zootsuitproductions.cubicworlds.CubeWorld.spacing;
+
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -46,13 +50,42 @@ public class CubicWorlds extends JavaPlugin implements Listener {
   public static String creatingWorldStateFileName = "creatingNewWorldState.txt";
   private boolean readyToAddFaces = false;
   public int cubeWorldRadius;
-
   private Config config;
-
   private WECubeWorldCreator cubeWorld;
   private CubeWorld cube;
-
   Location cubeCenter;
+
+  //EVENTS
+  @EventHandler
+  public void onBlockBreak(BlockBreakEvent event) {
+    if (cube == null) {
+      return;
+    }
+    Location bLoc = event.getBlock().getLocation();
+
+    WorldPermutation perm = cube.getClosestPermutation(bLoc); //make this return a pair, the perm,
+
+
+    Vector3d cubeWorldCoord = perm.getWorldCoordinate(bLoc);
+
+    cube.setBlockOnAllPermsExcept(Material.AIR.createBlockData(), cubeWorldCoord, perm);
+
+  }
+
+  @EventHandler
+  public void onBlockPlace(BlockPlaceEvent event) {
+    if (cube == null) {
+      return;
+    }
+
+
+    Location bLoc = event.getBlock().getLocation();
+
+    WorldPermutation perm = cube.getClosestPermutation(bLoc);
+    Vector3d cubeWorldCoord = perm.getWorldCoordinate(bLoc);
+
+    cube.setBlockOnAllPermsExcept(event.getBlockPlaced().getBlockData(), cubeWorldCoord, perm);
+  }
 
   @EventHandler
   public void onPlayerJoin(PlayerJoinEvent event) {
@@ -61,8 +94,8 @@ public class CubicWorlds extends JavaPlugin implements Listener {
 
   @EventHandler
   public void onPlayerRespawn(PlayerRespawnEvent event) {
-    System.out.println();
-    cube.setCurrentPermutationOfPlayer(event.getPlayer());
+
+    cube.setCurrentPermutationOfPlayerByLocation(event.getPlayer(), event.getRespawnLocation());
     cube.playerIsReadyToTeleport.put(event.getPlayer().getUniqueId(), false);
   }
 
@@ -79,12 +112,6 @@ public class CubicWorlds extends JavaPlugin implements Listener {
       }
     }
     folder.delete();
-  }
-
-  public static String readFileToString(String filePath) throws IOException {
-    Path path = Paths.get(filePath);
-    byte[] bytes = Files.readAllBytes(path);
-    return new String(bytes);
   }
 
   @Override
@@ -123,17 +150,13 @@ public class CubicWorlds extends JavaPlugin implements Listener {
       cubeWorld.pasteWorldAtLocation(((Player) sender).getLocation(), this);
       cubeCenter = ((Player) sender).getLocation();
 
-      cube = new CubeWorld(cubeCenter,cubeWorldRadius, CubeWorld.spacing);
-
     } else if (cmd.getName().equalsIgnoreCase("goBackToNormalWorld")) {
-      Player p = (Player) sender;
 
       createAndWriteFile("world_to_change_to.txt","world");
       Bukkit.shutdown();
 
     } else if (cmd.getName().equalsIgnoreCase("addFace")) {
       Player p = (Player) sender;
-      Location ploc = p.getLocation();
 
       if (!readyToAddFaces) {
         p.sendMessage("Use /createCubeWorld [r] first");
@@ -145,69 +168,20 @@ public class CubicWorlds extends JavaPlugin implements Listener {
 
     } else if (cmd.getName().equalsIgnoreCase("rot")) {
       switchPlayerPermutationsIfNecessaryRepeatingTask();
-
-
-//
-//      if (cube.playerIsReadyToTeleport.getOrDefault(p.getUniqueId(), true)) {
-//        if (cube.shouldPlayerBeTeleportedToNewFace(p)) { // code is duplicated jhere...
-//          if (timeOfSwitchEdgeStart > 0) {
-////            long timeDifferenceBetweenMoves = System.currentTimeMillis() - timeOfSwitchEdgeStart;
-////            if (timeDifferenceBetweenMoves == 0) {
-////              return true;
-////            }
-//
-////            Location displacement = event.getTo().clone().subtract(locOfSwitchStart);
-//
-//            double distanceTraveled = 1; // Calculate the distance traveled using the length() method
-//            double timeInSeconds =
-//                1000 / 1000.0; // Convert milliseconds to seconds
-//
-//            double speed =
-//                distanceTraveled / timeInSeconds; // Calculate the speed in blocks per second
-//
-//            Vector velocity = new Vector(1 / timeInSeconds,
-//                1 / timeInSeconds, 1 / timeInSeconds);
-//            //find each axis speed
-//
-//            if (cube.teleportToClosestFace(p, velocity, this)) {
-//              timeOfSwitchEdgeStart = -1;
-//              locOfSwitchStart = null;
-//            }
-//
-//          }
-//        }
-//
-//        //set these back to null values when done successfully teleport!!!!INGAA
-//        ///8
-//        //
-//        timeOfSwitchEdgeStart = System.currentTimeMillis();
-////        locOfSwitchStart = event.getTo();
-//
-//
-//      }
-
-//      Player p = (Player) sender;
-//      GameMode currentMode = p.getGameMode();
-//      p.setGameMode(GameMode.SPECTATOR);
-//      Location loc = p.getLocation();
-//
-//      rotTimer(p, currentMode);
     }
     return true;
   }
 
-  private static boolean shouldCreateNewCubeWorld() {
+  public static boolean shouldCreateNewCubeWorld() {
     try {
       String content = new String(Files.readAllBytes(Paths.get(creatingWorldStateFileName)));
       return true;
     } catch (IOException e) {
-
-      System.out.println("i cant read ium a dumm");
       return false;
     }
   }
 
-  public void deleteFile(String filePath) {
+  public static void deleteFile(String filePath) {
     File file = new File(filePath);
 
     if (file.exists()) {
@@ -220,24 +194,6 @@ public class CubicWorlds extends JavaPlugin implements Listener {
       }
     } else {
       System.out.println("File does not exist.");
-    }
-  }
-
-  public static int mainCubeZPos = 500;
-  public static int mainCubeXPos = 500;
-
-  private void setupCubeWorld() {
-
-    cubeWorld = new WECubeWorldCreator(cubeWorldRadius,cubeWorldRadius,cubeWorldRadius);
-
-    cubeCenter = new Location(getServer().getWorlds().get(0),mainCubeXPos,60,mainCubeZPos);
-
-    cube = new CubeWorld(cubeCenter,cubeWorldRadius, CubeWorld.spacing);
-
-    if (shouldCreateNewCubeWorld()) {
-      cubeWorld.pasteWorldAtLocation(cubeCenter, this);
-      System.out.println("Creating new cube world");
-      deleteFile(creatingWorldStateFileName);
     }
   }
 
@@ -255,7 +211,8 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     //check if we are not in the normal world, outside of the cube world creation phase. if so, then  run the rest of this setup code
     if (!overworld.getName().equalsIgnoreCase("world")) {
       System.out.println("setting up");
-      setupCubeWorld();
+      cubeCenter = new Location(getServer().getWorlds().get(0), mainCubeXPos,60, mainCubeZPos);
+      cube = new CubeWorld(cubeCenter,cubeWorldRadius, spacing, this);
     }
 
     Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
@@ -295,48 +252,6 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     } catch (IOException e) {
       e.printStackTrace();
     }
-  }
-
-  @EventHandler
-  public void onBlockFromTo(BlockFromToEvent event) {
-    if(event.getBlock().getBiome() == Biome.THE_VOID) {
-      event.setCancelled(true);
-    }
-  }
-
-
-  private long timeOfSwitchEdgeStart = -1;
-  private Location locOfSwitchStart = null;
-
-  @EventHandler
-  public void onBlockBreak(BlockBreakEvent event) {
-    if (cube == null) {
-      return;
-    }
-    Location bLoc = event.getBlock().getLocation();
-
-    WorldPermutation perm = cube.getClosestPermutation(bLoc); //make this return a pair, the perm,
-
-
-    Vector3d cubeWorldCoord = perm.getWorldCoordinate(bLoc);
-
-    cube.setBlockOnAllPermsExcept(Material.AIR.createBlockData(), cubeWorldCoord, perm);
-
-  }
-
-  @EventHandler
-  public void onBlockPlace(BlockPlaceEvent event) {
-    if (cube == null) {
-      return;
-    }
-
-
-    Location bLoc = event.getBlock().getLocation();
-
-    WorldPermutation perm = cube.getClosestPermutation(bLoc);
-    Vector3d cubeWorldCoord = perm.getWorldCoordinate(bLoc);
-
-    cube.setBlockOnAllPermsExcept(event.getBlockPlaced().getBlockData(), cubeWorldCoord, perm);
   }
 
   private World overworld;

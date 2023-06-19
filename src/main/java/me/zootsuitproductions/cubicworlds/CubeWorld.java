@@ -1,5 +1,8 @@
 package me.zootsuitproductions.cubicworlds;
 
+import static me.zootsuitproductions.cubicworlds.CubicWorlds.creatingWorldStateFileName;
+import static me.zootsuitproductions.cubicworlds.CubicWorlds.deleteFile;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -29,7 +32,13 @@ public class CubeWorld {
   //if this is changed, need to also change the getClosestPerm function
   public static int spacing = 100;
 
+  public static int mainCubeZPos = 500;
+  public static int mainCubeXPos = 500;
+
+  private final Location mainCubeCenter;
+
   private final World world;
+  private final Plugin plugin;
 
   public static final AxisTransformation[] transformations = new AxisTransformation[] {
       AxisTransformation.TOP,
@@ -39,6 +48,17 @@ public class CubeWorld {
       AxisTransformation.LEFT,
       AxisTransformation.RIGHT
   };
+
+  private void setupCubeWorld() {
+
+    WECubeWorldCreator worldCreator = new WECubeWorldCreator(radius,radius,radius);
+
+    if (CubicWorlds.shouldCreateNewCubeWorld()) {
+      worldCreator.pasteWorldAtLocation(mainCubeCenter, plugin);
+      System.out.println("Creating new cube world");
+      deleteFile(creatingWorldStateFileName);
+    }
+  }
 
   public void setBlockOnAllPermsExcept(BlockData blockData, Vector3d cubeWorldCoordinate, WorldPermutation dontSetOnThisOne) {
     //this is a bit redundant/inefficient. for the og perm it updates it even though it doesnt need to.
@@ -87,7 +107,7 @@ public class CubeWorld {
 
 
 //
-    worldIndex = Math.round((float) (x - CubicWorlds.mainCubeXPos) / (float) spacing);
+    worldIndex = Math.round((float) (x - mainCubeXPos) / (float) spacing);
 //
 //    int thousandsPlace = (x / 1000) % 10; // Get the thousands place digit
 //
@@ -112,6 +132,10 @@ public class CubeWorld {
     currentPermutationOfPlayer.put(player.getUniqueId(), getClosestPermutation(player.getLocation()));
   }
 
+  public void setCurrentPermutationOfPlayerByLocation(Player player, Location loc) {
+    currentPermutationOfPlayer.put(player.getUniqueId(), getClosestPermutation(loc));
+  }
+
   private final Vector[] cubeCenterPositions = new Vector[] {
       new Vector(0,0,0),
       new Vector(0,0,1),
@@ -122,13 +146,14 @@ public class CubeWorld {
   };
 
 
-  public CubeWorld(Location pasteCenter, int radius, int spaceBetween) {
+  public CubeWorld(Location pasteCenter, int radius, int spaceBetween, Plugin plugin) {
     this.radius = radius;
+    this.mainCubeCenter = pasteCenter;
     int spaceBetweenCubeRotationsInWorld = spaceBetween;
     this.world = pasteCenter.getWorld();
+    this.plugin = plugin;
 
     world.setSpawnLocation(WorldPermutation.translateLocation(pasteCenter, 0, radius,0));
-
 
     cubeFaceCenters[0] = new Vector3d(0, radius,0);
     worldPermutations[0] = new WorldPermutation(pasteCenter, radius, AxisTransformation.TOP, cubeFaceCenters[0], 0);
@@ -138,10 +163,9 @@ public class CubeWorld {
     for (int i = 1; i < transformations.length; i++) {
       cubeFaceCenters[i] = transformations[i].unapply(cubeFaceCenters[0]);
 
-      Location center = WorldPermutation.translateLocation(pasteCenter, i * spaceBetweenCubeRotationsInWorld,0,0);
-
-//          WorldPermutation.translateLocation(pasteCenter, cubeCenterPositions[i].getBlockX() * spaceBetweenCubeRotationsInWorld,0, cubeCenterPositions[i].getBlockZ() );
-      ChunkUtils.forceLoadChunksAroundLocation(center, radius);
+      //uncomment if you want to keep all chunks loaded
+//      Location center = WorldPermutation.translateLocation(pasteCenter, i * spaceBetweenCubeRotationsInWorld,0,0);
+//      ChunkUtils.forceLoadChunksAroundLocation(center, radius);
 
       worldPermutations[i] = new WorldPermutation(
           worldPermutations[0],
@@ -150,21 +174,8 @@ public class CubeWorld {
           cubeFaceCenters[i], i);
     }
 
-
+    setupCubeWorld();
     setCurrentPlayerPerms();
-  }
-
-  public void startTimerTillPlayerCanChangeFacesAgain(UUID playerID, Plugin plugin) {
-    // Run the task after a 10-second delay and repeat every 20 ticks (1 second)
-
-    new BukkitRunnable() {
-      @Override
-      public void run() {
-        playerIsReadyToTeleport.put(playerID, true);
-        cancel();
-
-      }
-    }.runTaskTimer(plugin, 20, 20);
   }
 
 
