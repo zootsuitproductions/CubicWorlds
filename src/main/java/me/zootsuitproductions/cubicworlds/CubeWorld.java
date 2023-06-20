@@ -73,7 +73,7 @@ public class CubeWorld {
     world.getPlayers().forEach(p ->
     {
       if (shouldPlayerBeTeleportedToNewFace(p)) {
-        teleportToClosestFace(p, plugin);
+        teleportToClosestFace(p);
       }
     });
   }
@@ -186,7 +186,6 @@ public class CubeWorld {
       worldPermutations[i] = new WorldPermutation(
           worldPermutations[0],
           cubeCenterLocations[i],
-//          WorldPermutation.translateLocation(pasteCenter, i * spaceBetweenCubeRotationsInWorld,0,0),
           transformations[i],
           cubeFaceCenters[i], i);
     }
@@ -235,7 +234,6 @@ public class CubeWorld {
       Vector newVelo;
       @Override
       public void run() {
-        p.sendMessage("c" + counter);
         yawPerTick = calculateYawToRotatePerTick(p.getLocation().getYaw(), yawForSeamlessSwitch, ticksToRotateOver - counter);
 
         if (counter > 0) {
@@ -244,16 +242,13 @@ public class CubeWorld {
 
           int ticks = 1;
           Vector velocity = new Vector(displacement.getX() / ticks,displacement.getY() / ticks, displacement.getZ() / ticks);
-
-          p.sendMessage("vel " + velocity);
-
           //add velocity in the outward direction too, to move one block out
 //
 
 
           if (counter == 1) {
             Vector velocityTowardNewFace = new Vector(directionOfNewFace.x * 0.1, 0, directionOfNewFace.z * 0.1);
-            newVelo = velocity.add(new Vector(0,0.1,0)).add(velocityTowardNewFace);
+            newVelo = velocity.add(new Vector(0,0.2,0)).add(velocityTowardNewFace);
             if (newVelo.getY() > 0) {
               newVelo.setY(0);
             }
@@ -314,8 +309,6 @@ public class CubeWorld {
     return actualWorldLocationToTeleportTo;
   }
 
-
-
   public boolean shouldPlayerBeTeleportedToNewFace(Player player) {
     Location loc = player.getLocation();
 
@@ -339,7 +332,8 @@ public class CubeWorld {
   }
 
 
-  public boolean teleportToClosestFace(Player player, Plugin plugin) {
+  public boolean teleportToClosestFace(Player player) {
+    player.sendMessage("ur off the face bruh");
     UUID uuid = player.getUniqueId();
 
     Location loc = player.getLocation();
@@ -349,7 +343,9 @@ public class CubeWorld {
     WorldPermutation currentRot = currentPermutationOfPlayer.getOrDefault(uuid, worldPermutations[0]);
 
     Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(eyeLocation);
+
     WorldPermutation closestFace = findClosestFaceToCubeWorldCoordinate(cubeWorldCoordinateOfPlayer);
+//    WorldPermutation closestFace = findClosestFaceOtherThanCurrent(cubeWorldCoordinateOfPlayer, currentRot);
 
     Vector3d directionOfClosestFace = currentRot.axisTransformation.apply(closestFace.topFaceCoordinateOnMainWorld).normalize();
 
@@ -357,11 +353,24 @@ public class CubeWorld {
     //they are switching to, to make room for the players legs when they teleport
     Location behindLoc = player.getLocation().subtract(directionOfClosestFace.x,directionOfClosestFace.y,directionOfClosestFace.z);
 
+    //if im doing this^ it needs to be opposite when facing toward the center
+
     if ((closestFace == currentRot) /*|| (behindLoc.getBlock().getBlockData().getMaterial() != Material.AIR)*/) return false;
 
     currentPermutationOfPlayer.put(uuid, null);
     //null used to indicate teleportation in progress
 
+
+    //todo:To easily handle copying rotatable blocks, make a 2 point poly section from the center to the block placed, and rotate it and paste it around the centers of each of the cubes.
+    //
+    //Test it and see how many blocks it copies, and if I need more
+
+    //maybe only have interior grass blocks be grass, so on the top face it looks consistent with the sides
+    //(sandwich real grass blocks inside)
+    //todo: pitch too, then do grass moss replacement: do //replace on all of the selections when pasting
+    // then copy everything as moss, then
+    // optimize algorithm to find the heighest moss block and check if it has dirt below it and air/trees above, set back to grass
+    //cant use WE for that^^
     float yawForSeamlessSwitch = currentRot.getYawForSeamlessSwitch(directionOfClosestFace, player.getLocation().getYaw());
 
     rotTimer(player,plugin, currentRot, closestFace, yawForSeamlessSwitch, directionOfClosestFace);
@@ -374,6 +383,25 @@ public class CubeWorld {
 //  private WorldPermutation findClosestPermutationFromMCWorldCoordinate(Location worldLocation) {
 //
 //  }
+
+  private WorldPermutation findClosestFaceOtherThanCurrent(Vector3d mainCubeWorldCoordinate, WorldPermutation current) {
+
+    int closestFaceIndex = 0;
+    double closestDistance = 100000000;
+
+    int ignoreIndex = current.index;
+
+    for (int i = 0; i < cubeFaceCenters.length; i++) {
+      if (i == ignoreIndex) continue;
+
+      double distance = mainCubeWorldCoordinate.distance(cubeFaceCenters[i]);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestFaceIndex = i;
+      }
+    }
+    return worldPermutations[closestFaceIndex];
+  }
 
   private WorldPermutation findClosestFaceToCubeWorldCoordinate(Vector3d mainCubeWorldCoordinate) {
 
