@@ -5,6 +5,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Vector;
 import org.joml.Vector2d;
@@ -314,6 +315,34 @@ public class WorldPermutation {
 
   public static Location translateLocation(Location loc, int xTrans, int yTrans, int zTrans) {
     return new Location(loc.getWorld(), loc.getBlockX() + xTrans, loc.getBlockY() + yTrans, loc.getBlockZ() + zTrans);
+  }
+
+  private float getDegreesBetweenRotations(float r1, float r2) {
+    // Calculate the difference between the two rotations
+    float rotationDifference = r2 - r1;
+
+    // Normalize the rotation difference to be within the range [-180, 180]
+    while (rotationDifference > 180) {
+      rotationDifference -= 360;
+    }
+    while (rotationDifference < -180) {
+      rotationDifference += 360;
+    }
+
+    // Return the rotation difference in degrees
+    return rotationDifference;
+  }
+
+  public float getYawForSeamlessSwitch(Vector3d directionOfClosestFace, float playerYaw) {
+    //this wont work for upside down face
+    float yawInDirectionOfNewFace = getYawFromAxisDirectionFacing(directionOfClosestFace);
+
+    if (Math.abs(getDegreesBetweenRotations(yawInDirectionOfNewFace, playerYaw)) > 90) {
+        float oppositeDirection = getYawFromAxisDirectionFacing(directionOfClosestFace.mul(-1));
+        return oppositeDirection;
+    }
+
+    return yawInDirectionOfNewFace;
   }
 
 }

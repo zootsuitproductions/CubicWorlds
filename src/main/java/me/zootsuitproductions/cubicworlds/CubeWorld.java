@@ -66,37 +66,16 @@ public class CubeWorld {
       public void run() {
         switchPlayerPermutationsIfNecessaryRepeatingTask();
       }
-    }, 20L, 5L);
+    }, 20L, 1L);
   }
 
   public void switchPlayerPermutationsIfNecessaryRepeatingTask() {
     world.getPlayers().forEach(p ->
     {
       if (shouldPlayerBeTeleportedToNewFace(p)) {
-        playerTimePositions.add(new PlayerTimePosition(p, p.getLocation(), System.currentTimeMillis()));
+        teleportToClosestFace(p, plugin);
       }
     });
-
-    Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-      @Override
-      public void run() {
-        for (int i = 0; i < playerTimePositions.size(); i++) {
-          PlayerTimePosition pTimePos = playerTimePositions.get(i);
-          Player p = pTimePos.getPlayer();
-
-          Location displacement = p.getLocation().subtract(pTimePos.getLocation());
-
-          int ticks = 1;
-
-          Vector velocity = new Vector(displacement.getX() / ticks,
-              displacement.getY() / ticks, displacement.getZ() / ticks);
-
-          teleportToClosestFace(p, velocity, plugin);
-        }
-
-        playerTimePositions.clear();
-      }
-    }, 1);
   }
 
   public void setBlockOnAllPermsExcept(BlockData blockData, Vector3d cubeWorldCoordinate, WorldPermutation dontSetOnThisOne) {
@@ -216,9 +195,15 @@ public class CubeWorld {
   }
 
 
-  public void rotTimer(Player p, Vector velocity, Plugin plugin, Location rotatedLocation, WorldPermutation currentRot, WorldPermutation closestFace) {
+//  private float rotateSmoothToYaw(float currentYaw, float finalYaw, int ticksToRotateOver, int currentTick) {
+//    float yawPerTick = (finalYaw - currentYaw) / ticksToRotateOver;z
+//  }
 
-    int ticksToRotateOver = 1;
+  public void rotTimer(Player p, Plugin plugin, WorldPermutation currentRot, WorldPermutation closestFace, float yawForSeamlessSwitch, Vector3d directionOfNewFace) {
+
+    int ticksToRotateOver = 4;
+
+    //todo: ROTATION
 
 //    float degreeDifference = (rotateToThisYaw - p.getLocation().getYaw());
 //    if (degreeDifference > 180) {
@@ -230,21 +215,46 @@ public class CubeWorld {
 //    float degreesToRotatePerTick = degreeDifference / ticksToRotateOver;
 
     new BukkitRunnable() {
-
       int counter = 0;
+      Location lastPlayerPosition = p.getLocation();
+      Vector newVelo;
       @Override
       public void run() {
-        if (counter == ticksToRotateOver) {
-          currentPermutationOfPlayer.put(p.getUniqueId(), closestFace);
-          cancel();
-          return;
-        }
 
-        if (counter == ticksToRotateOver - 1) {
-          p.teleport(rotatedLocation);
-          p.setVelocity(velocity);
-        }
+        if (counter > 0) {
+          Location displacement = p.getLocation().subtract(lastPlayerPosition);
+          lastPlayerPosition = p.getLocation();
 
+          int ticks = 1;
+          Vector velocity = new Vector(displacement.getX() / ticks,displacement.getY() / ticks, displacement.getZ() / ticks);
+
+          p.sendMessage("vel " + velocity);
+
+          //add velocity in the outward direction too, to move one block out
+//
+
+
+          if (counter == 1) {
+            Vector velocityTowardNewFace = new Vector(directionOfNewFace.x * 0.1, 0, directionOfNewFace.z * 0.1);
+            newVelo = velocity.add(new Vector(0,0.1,0)).add(velocityTowardNewFace);
+            if (newVelo.getY() > 0) {
+              newVelo.setY(0);
+            }
+
+          }
+          p.setVelocity(newVelo);
+
+          if (counter == ticksToRotateOver) {
+            Location rotatedLocation = currentRot.getMinecraftWorldLocationOnOtherCube(closestFace, p.getLocation());
+            Vector rotatedVelocity = currentRot.rotateVectorToOtherCube(velocity, closestFace);
+            p.teleport(rotatedLocation);
+            p.setVelocity(rotatedVelocity);
+
+            currentPermutationOfPlayer.put(p.getUniqueId(), closestFace);
+            cancel();
+            return;
+          }
+        }
         counter ++;
       }
     }.runTaskTimer(plugin, 0, 1);
@@ -283,6 +293,8 @@ public class CubeWorld {
     return actualWorldLocationToTeleportTo;
   }
 
+
+
   public boolean shouldPlayerBeTeleportedToNewFace(Player player) {
     Location loc = player.getLocation();
 
@@ -306,14 +318,12 @@ public class CubeWorld {
   }
 
 
-
-  public boolean teleportToClosestFace(Player player, Vector velocity, Plugin plugin) {
+  public boolean teleportToClosestFace(Player player, Plugin plugin) {
     UUID uuid = player.getUniqueId();
 
     Location loc = player.getLocation();
 
     Location eyeLocation = loc.add(0,1.62,0);
-
 
     WorldPermutation currentRot = currentPermutationOfPlayer.getOrDefault(uuid, worldPermutations[0]);
 
@@ -326,13 +336,14 @@ public class CubeWorld {
     //they are switching to, to make room for the players legs when they teleport
     Location behindLoc = player.getLocation().subtract(directionOfClosestFace.x,directionOfClosestFace.y,directionOfClosestFace.z);
 
-    if ((closestFace == currentRot) || (behindLoc.getBlock().getBlockData().getMaterial() != Material.AIR)) return false;
+    if ((closestFace == currentRot) /*|| (behindLoc.getBlock().getBlockData().getMaterial() != Material.AIR)*/) return false;
 
-    Location rotatedLocation = currentRot.getMinecraftWorldLocationOnOtherCube(closestFace, player.getLocation());
-    Vector rotatedVelocity = currentRot.rotateVectorToOtherCube(velocity, closestFace);
+    currentPermutationOfPlayer.put(uuid, null);
+    //null used to indicate teleportation in progress
 
+    float yawForSeamlessSwitch = currentRot.getYawForSeamlessSwitch(directionOfClosestFace, player.getLocation().getYaw());
 
-    rotTimer(player, rotatedVelocity, plugin, rotatedLocation, currentRot, closestFace);
+    rotTimer(player,plugin, currentRot, closestFace, yawForSeamlessSwitch, directionOfClosestFace);
 
 
     return true;
