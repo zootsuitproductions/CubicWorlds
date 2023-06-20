@@ -62,8 +62,9 @@ public class CubicWorlds extends JavaPlugin implements Listener {
 
     Location bLoc = event.getBlock().getLocation();
     WorldPermutation perm = cube.getClosestPermutation(bLoc);
-
+    
     Vector3d cubeWorldCoord = perm.getWorldCoordinate(bLoc);
+
 
     cube.setBlockOnAllPermsExcept(Material.AIR.createBlockData(), cubeWorldCoord, perm);
 

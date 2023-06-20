@@ -87,6 +87,7 @@ public class CubeWorld {
 
       Location loc = worldPermutations[i].getLocationOnThisPermFromCubeWorldCoordinate(cubeWorldCoordinate, world);
 
+      System.out.println(loc.toVector());
       loc.getBlock().setBlockData(blockData);
 
     }
@@ -97,7 +98,9 @@ public class CubeWorld {
   public WorldPermutation getClosestPermutation(Location location) {
     //this only works for thousand block seperated worlds
 
-    Location relativeLoc = location.subtract(mainCubeCenter);
+    Location copy = location.clone();
+
+    Location relativeLoc = copy.subtract(mainCubeCenter);
 
     int x = (int) Math.round(relativeLoc.getBlockX() / 100.0);
     int z = (int) Math.round(relativeLoc.getBlockZ() / 100.0);
@@ -195,13 +198,23 @@ public class CubeWorld {
   }
 
 
-//  private float rotateSmoothToYaw(float currentYaw, float finalYaw, int ticksToRotateOver, int currentTick) {
-//    float yawPerTick = (finalYaw - currentYaw) / ticksToRotateOver;z
-//  }
+  private float calculateYawToRotatePerTick(float currentYaw, float finalYaw, int ticksToRotateOver) {
+    float yawPerTick;
+    float difference = finalYaw - currentYaw;
+
+    if (difference > 180) {
+      difference -= 360;
+    } else if (difference < -180) {
+      difference += 360;
+    }
+
+    yawPerTick = difference / (ticksToRotateOver+1);
+    return yawPerTick;
+  }
 
   public void rotTimer(Player p, Plugin plugin, WorldPermutation currentRot, WorldPermutation closestFace, float yawForSeamlessSwitch, Vector3d directionOfNewFace) {
 
-    int ticksToRotateOver = 4;
+    int ticksToRotateOver = 8;
 
     //todo: ROTATION
 
@@ -217,9 +230,13 @@ public class CubeWorld {
     new BukkitRunnable() {
       int counter = 0;
       Location lastPlayerPosition = p.getLocation();
+      float yawPerTick = calculateYawToRotatePerTick(p.getLocation().getYaw(), yawForSeamlessSwitch, ticksToRotateOver);
+
       Vector newVelo;
       @Override
       public void run() {
+        p.sendMessage("c" + counter);
+        yawPerTick = calculateYawToRotatePerTick(p.getLocation().getYaw(), yawForSeamlessSwitch, ticksToRotateOver - counter);
 
         if (counter > 0) {
           Location displacement = p.getLocation().subtract(lastPlayerPosition);
@@ -242,9 +259,13 @@ public class CubeWorld {
             }
 
           }
+          Location pLoc = p.getLocation();
+          p.sendMessage("yawpertick " + yawPerTick);
+          pLoc.setYaw(pLoc.getYaw() + yawPerTick);
+          p.teleport(pLoc);
           p.setVelocity(newVelo);
 
-          if (counter == ticksToRotateOver) {
+          if (counter >= ticksToRotateOver) {
             Location rotatedLocation = currentRot.getMinecraftWorldLocationOnOtherCube(closestFace, p.getLocation());
             Vector rotatedVelocity = currentRot.rotateVectorToOtherCube(velocity, closestFace);
             p.teleport(rotatedLocation);

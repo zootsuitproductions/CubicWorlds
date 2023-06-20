@@ -32,10 +32,14 @@ public class WorldPermutation {
 
   public WorldPermutation(WorldPermutation mainCube, Location pasteCenter, AxisTransformation axisTransformation, Vector3d topFaceCoordinateOnMainWorld, int index) {
     radius = mainCube.radius;
+
     this.center = pasteCenter;
     this.axisTransformation = axisTransformation;
     this.index = index;
     this.topFaceCoordinateOnMainWorld = topFaceCoordinateOnMainWorld;
+
+
+    System.out.println("WORLD PERM CENTER: " + this.center);
   }
 
   //clamp the vector at the end
@@ -82,6 +86,7 @@ public class WorldPermutation {
   public Location getLocationOnThisPermFromCubeWorldCoordinate(Vector3d cubeWorldCoordinate, World world) {
     Vector3d localCoordinate = axisTransformation.apply(cubeWorldCoordinate);
     System.out.println("LOCAL COORD: " + localCoordinate);
+    System.out.println(center);
     return new Location(world, localCoordinate.x + center.getBlockX(), localCoordinate.y + center.getBlockY(), localCoordinate.z + center.getBlockZ());
   }
 
