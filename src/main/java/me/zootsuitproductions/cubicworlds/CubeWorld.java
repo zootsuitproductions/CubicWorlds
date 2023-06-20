@@ -211,7 +211,7 @@ public class CubeWorld {
     return yawPerTick;
   }
 
-  public void rotTimer(Player p, Plugin plugin, WorldPermutation currentRot, WorldPermutation closestFace, float yawForSeamlessSwitch, Vector3d directionOfNewFace) {
+  public void rotTimer(Player p, Plugin plugin, WorldPermutation currentRot, WorldPermutation closestFace, float yawForSeamlessSwitch, Vector3d directionOfNewFace, boolean shouldBoost) {
 
     int ticksToRotateOver = 8;
 
@@ -247,7 +247,12 @@ public class CubeWorld {
 
 
           if (counter == 1) {
-            Vector velocityTowardNewFace = new Vector(directionOfNewFace.x * 0.1, 0, directionOfNewFace.z * 0.1);
+            Vector velocityTowardNewFace = new Vector(0,0,0);
+            if (shouldBoost) {
+              p.sendMessage("boosting");
+              velocityTowardNewFace = new Vector(directionOfNewFace.x * 0.2, 0, directionOfNewFace.z * 0.2);
+
+            }
             newVelo = velocity.add(new Vector(0,0.2,0)).add(velocityTowardNewFace);
             if (newVelo.getY() > 0) {
               newVelo.setY(0);
@@ -351,14 +356,22 @@ public class CubeWorld {
 
     //make sure the player has at least 1 block of space in the opposite direction as the face
     //they are switching to, to make room for the players legs when they teleport
-    Location behindLoc = player.getLocation().subtract(directionOfClosestFace.x,directionOfClosestFace.y,directionOfClosestFace.z);
-
     //if im doing this^ it needs to be opposite when facing toward the center
 
     if ((closestFace == currentRot) /*|| (behindLoc.getBlock().getBlockData().getMaterial() != Material.AIR)*/) return false;
 
+    Location behindLoc = player.getLocation().subtract(directionOfClosestFace.x,directionOfClosestFace.y,directionOfClosestFace.z);
+
+    boolean shouldBoost = (behindLoc.getBlock().getBlockData().getMaterial() != Material.AIR);
+
     currentPermutationOfPlayer.put(uuid, null);
     //null used to indicate teleportation in progress
+
+
+
+    //todo: When u cross the edge, if you arent looking in the right direction, you
+    //get an impulse force applied to you sending you back. you can only cross the edge if
+    //you run straight on!!! have sideways gravity force as you go further.
 
 
     //todo:To easily handle copying rotatable blocks, make a 2 point poly section from the center to the block placed, and rotate it and paste it around the centers of each of the cubes.
@@ -373,7 +386,7 @@ public class CubeWorld {
     //cant use WE for that^^
     float yawForSeamlessSwitch = currentRot.getYawForSeamlessSwitch(directionOfClosestFace, player.getLocation().getYaw());
 
-    rotTimer(player,plugin, currentRot, closestFace, yawForSeamlessSwitch, directionOfClosestFace);
+    rotTimer(player,plugin, currentRot, closestFace, yawForSeamlessSwitch, directionOfClosestFace, shouldBoost);
 
 
     return true;

@@ -69,7 +69,7 @@ public class WorldPermutation {
   public boolean isLocationOffOfFaceRadius(Location loc) {
     Vector3d relative = getRelativeCoordinate(loc);
     //potential for reading which face to rotate to from whether its pos or neg x or z.
-    return (Math.abs(relative.x) > radius || Math.abs(relative.z) > radius || relative.y < 0);
+    return (Math.abs(relative.x) >= radius || Math.abs(relative.z) >= radius || relative.y <= 0);
   }
 
   private Vector3d getRelativeCoordinate(Location loc) {

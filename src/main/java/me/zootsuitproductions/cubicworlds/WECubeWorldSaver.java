@@ -72,6 +72,8 @@ public class WECubeWorldSaver {
       commands.add("/pos2 " + (x + xRadius) + "," + maxY + "," + (z + zRadius));
       delays.add(0);
 
+      commands.add("/replace grass_block moss_block");
+      delays.add(20*3);
       commands.add("/copy");
       delays.add(0);
       commands.add("/schem save face" + i + " -f");
