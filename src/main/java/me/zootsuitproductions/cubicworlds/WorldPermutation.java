@@ -10,8 +10,7 @@ public class WorldPermutation {
   public final AxisTransformation axisTransformation;
   public final Vector3d topFaceCoordinateOnMainWorld;
   public final Location center;
-  private int radius;
-
+  private final int radius;
   public final int index;
 
   public WorldPermutation(Location pasteCenter, int radius, AxisTransformation upFace, Vector3d topFaceCoordinateOnMainWorld, int index) {
