@@ -213,17 +213,6 @@ public class CubeWorld {
 
     int ticksToRotateOver = 3;
 
-    //todo: ROTATION
-
-//    float degreeDifference = (rotateToThisYaw - p.getLocation().getYaw());
-//    if (degreeDifference > 180) {
-//      degreeDifference = 360 - degreeDifference;
-//    } else if (degreeDifference < -180) {
-//      degreeDifference = 360 + degreeDifference;
-//    }
-
-//    float degreesToRotatePerTick = degreeDifference / ticksToRotateOver;
-
     new BukkitRunnable() {
       int counter = 0;
       Location lastPlayerPosition = p.getLocation();
@@ -246,6 +235,10 @@ public class CubeWorld {
 
           if (counter == 1) {
             Vector velocityTowardNewFace = new Vector(0,0,0);
+            //todo instead of doing the boost thing, check if the player's outward velocity is enough to avoid issues
+            //if it isn't, bounce them back
+
+
 //            if (shouldBoost) {
 //              p.sendMessage("boosting");
 //              velocityTowardNewFace = new Vector(directionOfNewFace.x * 0.2, 0, directionOfNewFace.z * 0.2);
@@ -310,6 +303,7 @@ public class CubeWorld {
     WorldPermutation currentRot = currentPermutationOfPlayer.getOrDefault(uuid, worldPermutations[0]);
 
     Vector3d directionOfClosestFace = currentRot.axisTransformation.apply(newPerm.topFaceCoordinateOnMainWorld).normalize();
+    Vector3d clone = new Vector3d(directionOfClosestFace.x, directionOfClosestFace.y, directionOfClosestFace.z);
 
     if (directionOfClosestFace.y < 0) { //going to other side of the world
       teleportPlayerToNewCubePermutationASAP(player, plugin, currentRot, newPerm);
@@ -327,6 +321,10 @@ public class CubeWorld {
       rotTimer(player,plugin, currentRot, newPerm, yawForSeamlessSwitch, directionOfClosestFace, shouldBoost);
       currentPermutationOfPlayer.put(uuid, null);
     } else {
+      Vector oppositeDirection = new Vector(clone.x, -1, clone.z).multiply(-1);
+      player.sendMessage("directiopn" + oppositeDirection);
+
+      player.setVelocity(oppositeDirection);
       //calculate vector to send player back. it isnt just the opposite of direction of closest face
       //take into account the direction the player is looking
     }
