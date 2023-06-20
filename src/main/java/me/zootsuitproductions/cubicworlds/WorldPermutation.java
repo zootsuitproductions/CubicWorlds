@@ -32,7 +32,6 @@ public class WorldPermutation {
     localCoordOnClosestFace = localCoordOnClosestFace.sub(0, 1.62, 0);
     Location actualWorldLocationToTeleportTo = other.getLocationFromRelativeCoordinate(localCoordOnClosestFace);
 
-
     float newYaw = other.convertYawToNewCubePermutation(eyeLocation.getYaw(), this, isNewPermOnOppositeSide, player);
     actualWorldLocationToTeleportTo.setYaw(newYaw);
 
@@ -65,8 +64,6 @@ public class WorldPermutation {
 
   public Location getLocationOnThisPermFromCubeWorldCoordinate(Vector3d cubeWorldCoordinate, World world) {
     Vector3d localCoordinate = axisTransformation.apply(cubeWorldCoordinate);
-    System.out.println("LOCAL COORD: " + localCoordinate);
-    System.out.println(center);
     return new Location(world, localCoordinate.x + center.getBlockX(), localCoordinate.y + center.getBlockY(), localCoordinate.z + center.getBlockZ());
   }
 
@@ -102,75 +99,14 @@ public class WorldPermutation {
     }
   }
 
-  public static Vector3d convertYawPitchToVector(float yaw, float pitch) {
-    double yawRadian = Math.toRadians(yaw);
-    double pitchRadian = Math.toRadians(pitch);
-
-    double x = -Math.sin(yawRadian);
-    double y = -Math.sin(pitchRadian);
-    double z = Math.cos(yawRadian);
-
-    // Calculate the magnitude (length) of the vector
-    double magnitude = Math.sqrt(x * x + y * y + z * z);
-
-    // Normalize the vector by dividing each component by the magnitude
-    x /= magnitude;
-    y /= magnitude;
-    z /= magnitude;
-
-    return new Vector3d(x, y, z);
+  private float getYawFromVector(Vector3d vector, Player p) {
+    double radians = Math.atan2(-vector.x, vector.z);
+    return (float) (radians * (180 / Math.PI));
   }
 
-  //move these to utils class
-
-  public static Location setLookDirectionToVector(Location location, Vector3d vector3d) {
-    float yaw = (float) Math.toDegrees(Math.atan2(-vector3d.x, vector3d.z));
-    float pitch = (float) Math.toDegrees(Math.asin(-vector3d.y));
-
-    location.setYaw(yaw);
-    location.setPitch(pitch);
-    return location;
-  }
-
-  public static void debug(String string, Vector3d vector3d) {
-    float yaw = (float) Math.toDegrees(Math.atan2(-vector3d.x, vector3d.z));
-    float pitch = (float) Math.toDegrees(Math.asin(-vector3d.y));
-    System.out.println(string + ": yaw " + yaw + ", pitch " + pitch);
-  }
-
-  public static float getYaw(Vector3d vector3d) {
-    return (float) Math.toDegrees(Math.atan2(-vector3d.x, vector3d.z));
-  }
-
-  public static float getPitch(Vector3d vector3d) {
-    return (float) (float) Math.toDegrees(Math.asin(-vector3d.y));
-  }
-
-  public Vector3d convertLookingVectorFromOtherCubeRotation(Vector3d lookDirectionOnOther, WorldPermutation other) {
-    System.out.println("helloIN FUNC");
-
-    System.out.println("currentWorld vector : " + lookDirectionOnOther);
-    Vector3d mainCubeWorldLookDirection = other.axisTransformation.unapply(lookDirectionOnOther);
-
-    float y = getYaw(lookDirectionOnOther);
-    float y1 =  getYaw(lookDirectionOnOther);
-    float y3 =  getPitch(lookDirectionOnOther);
-    float y4 = getPitch(lookDirectionOnOther);
-
-    float y5 = getYaw(mainCubeWorldLookDirection);
-    float y6 = getYaw(mainCubeWorldLookDirection);
-    float ya = getPitch(mainCubeWorldLookDirection);
-
-    System.out.println("main world vector: " + mainCubeWorldLookDirection);
-    Vector3d newWorldLookDirection = axisTransformation.apply(mainCubeWorldLookDirection);
-
-    float y33= getYaw(newWorldLookDirection);
-    float ay = getYaw(newWorldLookDirection);
-    float y1a = getPitch(newWorldLookDirection);
-
-    System.out.println("new!! world vector: " + newWorldLookDirection);
-
-    return newWorldLookDirection;
+  private Vector3d getVectorFromYaw(float yaw) {
+    double radians = Math.PI * (yaw/180);
+    return new Vector3d(-Math.sin(radians), 0, Math.cos(radians));
   }
 
   public float convertPitchFromOtherCubeRotation(float pitch, float yaw, WorldPermutation previous) {
@@ -187,34 +123,6 @@ public class WorldPermutation {
     }
 
     return -pitch;
-  }
-
-//  public float convertYawFromOtherCubeRotation(float yaw, WorldPermutation other) {
-//    Vector3d yaxAxisWorld = other.getWorldYawAxisFacing(yaw);
-//    System.out.println("world yaw axis: " + yaxAxisWorld);
-//
-//    Vector3d localYawAxis = axisTransformation.apply(yaxAxisWorld);
-//
-//    System.out.println("local yaw axis: " + localYawAxis);
-//
-//    //yaw doesnt face y so the matrix rotation fucks it
-//    //take into account pitch
-//    //if pitch > 45
-//    return getYawFromAxisDirectionFacing(localYawAxis);
-//  }
-
-//  private float getYawFromVector(Vector3d vector3d) {
-//
-//  }
-
-  private float getYawFromVector(Vector3d vector, Player p) {
-    double radians = Math.atan2(-vector.x, vector.z);
-    return (float) (radians * (180 / Math.PI));
-  }
-
-  private Vector3d getVectorFromYaw(float yaw) {
-    double radians = Math.PI * (yaw/180);
-    return new Vector3d(-Math.sin(radians), 0, Math.cos(radians));
   }
 
   public float convertYawToNewCubePermutation(float yaw, WorldPermutation newPerm, boolean isNewPermutationOnOppositeSide, Player p) {
@@ -253,30 +161,10 @@ public class WorldPermutation {
   public Vector3d getLocalCoordinateFromWorldCoordinate(Vector3d worldCoordinate) {
     return axisTransformation.apply(worldCoordinate);
   }
-//
-//  public Location[] getFaceCenters() {
-//    return this.faceCenters.clone();
-//  }
-
-  public Vector3d translateLocalCoordinateToThisCubeRotation(Vector3d localSource, AxisTransformation sourceAxisTransformation) {
-    Vector3d coordinateFromMainCube = sourceAxisTransformation.apply(localSource);
-    return this.axisTransformation.unapply(coordinateFromMainCube);
-  }
 
   public Location getLocationFromRelativeCoordinate(Vector3d vector) {
-    System.out.println("center coordinate x + : " + center.getBlockX() + 0.0001);
     return new Location(center.getWorld(), center.getBlockX() + 0.5 + vector.x, center.getBlockY() + 0.5 + vector.y, center.getBlockZ() + 0.5 + vector.z);
   }
-
-  public Location getBlockLocationFromRelativeCoordinate(Vector3d vector) {
-    return new Location(center.getWorld(), center.getBlockX() + vector.x, center.getBlockY() + vector.y, center.getBlockZ() + vector.z);
-  }
-
-//  public Location getBlockLocationFromRelativeCoordinate(Vector3d vector) {
-//    return new Location(center.getWorld(), center.getBlockX() + vector.x, center.getY() + vector.y, center.getZ() + vector.z);
-//  }
-
-  //fix the world gen getting fucked from not rotating center block. TEST
 
   private Vector3d getLocationRelativeToThisPermutation(Location loc) {
     Vector3d toReturn = new Vector3d(
@@ -284,16 +172,10 @@ public class WorldPermutation {
         loc.getY() - (center.getBlockY() + 0.5),
         loc.getZ() - (center.getBlockZ() + 0.5));
 
-
-    //THE ROUNDING IS WHAT FUCKED IT
-    System.out.println("local coord " + Math.round(toReturn.x) + " " + Math.round(toReturn.y) + " " + Math.round(toReturn.z));
-
      return toReturn;
-  } //maybe make block
+  }
 
   public Vector3d getCubeWorldCoordinate(Location loc) {
-    System.out.println("coordinate before applying transform: " + getLocationRelativeToThisPermutation(loc));
-    System.out.println("coordinate before applying transform: " + getLocationRelativeToThisPermutation(loc));
     return axisTransformation.unapply(getLocationRelativeToThisPermutation(loc));
   }
 
