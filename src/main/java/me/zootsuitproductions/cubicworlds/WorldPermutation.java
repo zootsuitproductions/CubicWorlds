@@ -207,14 +207,9 @@ public class WorldPermutation {
 //
 //  }
 
-  private float getYawFromVector(Vector3d vector) {
+  private float getYawFromVector(Vector3d vector, Player p) {
     double radians = Math.atan2(-vector.x, vector.z);
-    float degrees = (float) (radians * (180 / Math.PI));
-    if (vector.z < 0) {
-      degrees += 180;
-      degrees = clampDegrees(degrees);
-    }
-    return degrees;
+    return (float) (radians * (180 / Math.PI));
   }
 
   private Vector3d getVectorFromYaw(float yaw) {
@@ -227,7 +222,7 @@ public class WorldPermutation {
       Vector3d lookVector = getVectorFromYaw(yaw);
       Vector3d yaxAxisWorld = axisTransformation.unapply(lookVector);
       Vector3d newPermLookVector = newPerm.axisTransformation.apply(yaxAxisWorld);
-      float newPermYaw = getYawFromVector(newPermLookVector);
+      float newPermYaw = clampDegrees(getYawFromVector(newPermLookVector, p) + 180);
       p.sendMessage("look " + lookVector);
       p.sendMessage("yaxAxisWorld " + yaxAxisWorld);
       p.sendMessage("newPermLookVector " + newPermLookVector);
