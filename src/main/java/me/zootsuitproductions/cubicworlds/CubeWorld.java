@@ -213,7 +213,7 @@ public class CubeWorld {
 
   public void rotTimer(Player p, Plugin plugin, WorldPermutation currentRot, WorldPermutation closestFace, float yawForSeamlessSwitch, Vector3d directionOfNewFace, boolean shouldBoost) {
 
-    int ticksToRotateOver = 8;
+    int ticksToRotateOver = 20;
 
     //todo: ROTATION
 
@@ -236,6 +236,7 @@ public class CubeWorld {
       public void run() {
         yawPerTick = calculateYawToRotatePerTick(p.getLocation().getYaw(), yawForSeamlessSwitch, ticksToRotateOver - counter);
 
+        p.sendMessage("yaw per tick: " + yawPerTick);
         if (counter > 0) {
           Location displacement = p.getLocation().subtract(lastPlayerPosition);
           lastPlayerPosition = p.getLocation();
@@ -248,22 +249,27 @@ public class CubeWorld {
 
           if (counter == 1) {
             Vector velocityTowardNewFace = new Vector(0,0,0);
-            if (shouldBoost) {
-              p.sendMessage("boosting");
-              velocityTowardNewFace = new Vector(directionOfNewFace.x * 0.2, 0, directionOfNewFace.z * 0.2);
-
-            }
-            newVelo = velocity.add(new Vector(0,0.2,0)).add(velocityTowardNewFace);
-            if (newVelo.getY() > 0) {
-              newVelo.setY(0);
-            }
+//            if (shouldBoost) {
+//
+//              //this is wrong when facing in!!!
+//              //todo:
+//              //also fix the sky, its distracting.
+//              //i could set the time for each player?
+//              p.sendMessage("boosting");
+//              velocityTowardNewFace = new Vector(directionOfNewFace.x * 0.2, 0, directionOfNewFace.z * 0.2);
+//
+//            }
+//            newVelo = velocity.add(new Vector(0,0.2,0)).add(velocityTowardNewFace);
+//            if (newVelo.getY() > 0) {
+//              newVelo.setY(0);
+//            }
 
           }
           Location pLoc = p.getLocation();
           p.sendMessage("yawpertick " + yawPerTick);
           pLoc.setYaw(pLoc.getYaw() + yawPerTick);
           p.teleport(pLoc);
-          p.setVelocity(newVelo);
+          p.setVelocity(velocity);
 
           if (counter >= ticksToRotateOver) {
             Location rotatedLocation = currentRot.getMinecraftWorldLocationOnOtherCube(closestFace, p.getLocation());
@@ -280,40 +286,6 @@ public class CubeWorld {
       }
     }.runTaskTimer(plugin, 0, 1);
   }
-
-  private float getYawForSeamlessSwitch(
-      WorldPermutation currentCube, WorldPermutation cubeToTeleportTo, float playerYaw) {
-
-    Vector3d faceVectorOfFaceAboutToSwitchTo = currentCube.axisTransformation.apply(
-        cubeToTeleportTo.topFaceCoordinateOnMainWorld);
-
-
-    float potentialYaw = WorldPermutation.getYawFromAxisDirectionFacing(faceVectorOfFaceAboutToSwitchTo.div(radius));
-
-    if (Math.round(playerYaw / 90) * 90 != potentialYaw) {
-      potentialYaw = potentialYaw - 180;
-    }
-
-    return potentialYaw;
-  }
-
-  private Location getMinecraftWorldLocationOnOtherCube(WorldPermutation currentCube, WorldPermutation cubeToTeleportTo, Location playerLoc) {
-    Location eyeLocation = playerLoc.add(0,1.62,0);
-    Vector3d cubeWorldCoordinateOfPlayerEyes = currentCube.getCubeWorldCoordinate(eyeLocation);
-
-    Vector3d localCoordOnClosestFace = cubeToTeleportTo.getLocalCoordinateFromWorldCoordinate(cubeWorldCoordinateOfPlayerEyes);
-    localCoordOnClosestFace = localCoordOnClosestFace.sub(0, 1.62, 0);
-    Location actualWorldLocationToTeleportTo = cubeToTeleportTo.getLocationFromRelativeCoordinate(localCoordOnClosestFace);
-
-
-    float newYaw = cubeToTeleportTo.convertYawFromOtherCubeRotation(eyeLocation.getYaw(), currentCube);
-    actualWorldLocationToTeleportTo.setYaw(newYaw);
-
-    actualWorldLocationToTeleportTo.setPitch(cubeToTeleportTo.convertPitchFromOtherCubeRotation(eyeLocation.getPitch(), eyeLocation.getYaw(), currentCube));
-
-    return actualWorldLocationToTeleportTo;
-  }
-
   public boolean shouldPlayerBeTeleportedToNewFace(Player player) {
     Location loc = player.getLocation();
 
