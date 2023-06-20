@@ -138,7 +138,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
       Bukkit.shutdown();
 
     } else if (cmd.getName().equalsIgnoreCase("rot")) {
-      cube.switchPlayerPermutationsIfNecessaryRepeatingTask();
+      cube.teleportPlayersIfNecessary();
     }
     return true;
   }

@@ -30,19 +30,6 @@ public class WorldPermutation {
     this.topFaceCoordinateOnMainWorld = topFaceCoordinateOnMainWorld;
   }
 
-  public WorldPermutation(WorldPermutation mainCube, Location pasteCenter, AxisTransformation axisTransformation, Vector3d topFaceCoordinateOnMainWorld, int index) {
-    radius = mainCube.radius;
-
-    this.center = pasteCenter;
-    this.axisTransformation = axisTransformation;
-    this.index = index;
-    this.topFaceCoordinateOnMainWorld = topFaceCoordinateOnMainWorld;
-
-
-    System.out.println("WORLD PERM CENTER: " + this.center);
-  }
-
-  //clamp the vector at the end
 
 
   //this doesnt need to clamp for going to opposite side
@@ -224,7 +211,6 @@ public class WorldPermutation {
 //    //if pitch > 45
 //    return getYawFromAxisDirectionFacing(localYawAxis);
 //  }
-
 
   public float convertYawFromOtherCubeRotation(float yaw, WorldPermutation other) {
     Vector3d yaxAxisWorld = other.getWorldYawAxisFacing(yaw);
