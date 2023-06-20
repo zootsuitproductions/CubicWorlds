@@ -1,18 +1,10 @@
 package me.zootsuitproductions.cubicworlds;
 
-import java.util.List;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.block.Block;
-import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Vector;
-import org.joml.Vector2d;
 import org.joml.Vector3d;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class WorldPermutation {
   public final AxisTransformation axisTransformation;
@@ -31,9 +23,8 @@ public class WorldPermutation {
   }
 
 
-
   //this doesnt need to clamp for going to opposite side
-  public Location getMinecraftWorldLocationOnOtherCube(WorldPermutation other, Location playerLoc) {
+  public Location getMinecraftWorldLocationOnOtherCube(WorldPermutation other, Location playerLoc, boolean isNewPermOnOppositeSide, Player player) {
     Location eyeLocation = playerLoc.add(0,1.62,0);
     Vector3d cubeWorldCoordinateOfPlayerEyes = getCubeWorldCoordinate(eyeLocation);
 
@@ -42,7 +33,7 @@ public class WorldPermutation {
     Location actualWorldLocationToTeleportTo = other.getLocationFromRelativeCoordinate(localCoordOnClosestFace);
 
 
-    float newYaw = other.convertYawFromOtherCubeRotation(eyeLocation.getYaw(), this);
+    float newYaw = other.convertYawToNewCubePermutation(eyeLocation.getYaw(), this, isNewPermOnOppositeSide, player);
     actualWorldLocationToTeleportTo.setYaw(newYaw);
 
     actualWorldLocationToTeleportTo.setPitch(other.convertPitchFromOtherCubeRotation(eyeLocation.getPitch(), eyeLocation.getYaw(), this));
@@ -212,46 +203,51 @@ public class WorldPermutation {
 //    return getYawFromAxisDirectionFacing(localYawAxis);
 //  }
 
-  public float convertYawFromOtherCubeRotation(float yaw, WorldPermutation other) {
-    Vector3d yaxAxisWorld = other.getWorldYawAxisFacing(yaw);
-    System.out.println("world yaw axis: " + yaxAxisWorld);
+//  private float getYawFromVector(Vector3d vector3d) {
+//
+//  }
 
+  private float getYawFromVector(Vector3d vector) {
+    double radians = Math.atan2(-vector.x, vector.z);
+    float degrees = (float) (radians * (180 / Math.PI));
+    if (vector.z < 0) {
+      degrees += 180;
+      degrees = clampDegrees(degrees);
+    }
+    return degrees;
+  }
+
+  private Vector3d getVectorFromYaw(float yaw) {
+    double radians = Math.PI * (yaw/180);
+    return new Vector3d(-Math.sin(radians), 0, Math.cos(radians));
+  }
+
+  public float convertYawToNewCubePermutation(float yaw, WorldPermutation newPerm, boolean isNewPermutationOnOppositeSide, Player p) {
+    if (isNewPermutationOnOppositeSide) {
+      Vector3d lookVector = getVectorFromYaw(yaw);
+      Vector3d yaxAxisWorld = axisTransformation.unapply(lookVector);
+      Vector3d newPermLookVector = newPerm.axisTransformation.apply(yaxAxisWorld);
+      float newPermYaw = getYawFromVector(newPermLookVector);
+      p.sendMessage("look " + lookVector);
+      p.sendMessage("yaxAxisWorld " + yaxAxisWorld);
+      p.sendMessage("newPermLookVector " + newPermLookVector);
+      p.sendMessage("newPermYaw " + newPermYaw);
+      return newPermYaw;
+    }
+
+    Vector3d yaxAxisWorld = newPerm.getWorldYawAxisFacing(yaw);
     Vector3d localYawAxis = axisTransformation.apply(yaxAxisWorld);
-
-    Vector3d originalYawAxis = other.getLocalYawAxisFacing(yaw);
-    Vector3d newCubeYawAxis = axisTransformation.apply(originalYawAxis);
+    Vector3d originalYawAxis = newPerm.getLocalYawAxisFacing(yaw);
 
     float yawOnNewCube = getYawFromAxisDirectionFacing(localYawAxis);
 
-    Vector3d vectorOfFaceSwitchingTo = other.axisTransformation.apply(topFaceCoordinateOnMainWorld).normalize();
+    Vector3d vectorOfFaceSwitchingTo = newPerm.axisTransformation.apply(topFaceCoordinateOnMainWorld).normalize();
 
     if (vectorOfFaceSwitchingTo.x == originalYawAxis.x && vectorOfFaceSwitchingTo.z == originalYawAxis.z) {
       return yawOnNewCube;
     }
 
-//    return yawOnNewCube;
-
     return clampDegrees(yawOnNewCube + 180);
-
-
-    //
-//    float potentialYaw = WorldPermutation.getYawFromAxisDirectionFacing(faceVectorOfFaceAboutToSwitchTo.div(radius));
-//
-//    System.out.println("the yaw" + potentialYaw);
-//    if (Math.round(potentialYaw / 90) * 90 != potentialYaw) {
-//      potentialYaw = potentialYaw - 180;
-//    }
-
-    //here do it
-
-//    System.out.println("local yaw axis: " + localYawAxis);
-
-
-
-    //yaw doesnt face y so the matrix rotation fucks it
-    //take into account pitch
-    //if pitch > 45
-//    return getYawFromAxisDirectionFacing(localYawAxis);
   }
 
   public Vector3d getWorldYawAxisFacing(float yaw) {
