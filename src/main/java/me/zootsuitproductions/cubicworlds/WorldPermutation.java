@@ -44,6 +44,8 @@ public class WorldPermutation {
 
   //clamp the vector at the end
 
+
+  //this doesnt need to clamp for going to opposite side
   public Location getMinecraftWorldLocationOnOtherCube(WorldPermutation other, Location playerLoc) {
     Location eyeLocation = playerLoc.add(0,1.62,0);
     Vector3d cubeWorldCoordinateOfPlayerEyes = getCubeWorldCoordinate(eyeLocation);

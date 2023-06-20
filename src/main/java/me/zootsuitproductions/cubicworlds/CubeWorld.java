@@ -197,9 +197,8 @@ public class CubeWorld {
   }
 
 
-  private float calculateYawToRotatePerTick(float currentYaw, float finalYaw, int ticksToRotateOver) {
-    float yawPerTick;
-    float difference = finalYaw - currentYaw;
+  public float differenceBetweenYaws(float yaw1, float yaw2) {
+    float difference = yaw1 - yaw2;
 
     if (difference > 180) {
       difference -= 360;
@@ -207,13 +206,46 @@ public class CubeWorld {
       difference += 360;
     }
 
+    return  difference;
+  }
+
+  private float calculateYawToRotatePerTick(float currentYaw, float finalYaw, int ticksToRotateOver) {
+    float yawPerTick;
+    float difference = differenceBetweenYaws(finalYaw, currentYaw);
+
     yawPerTick = difference / (ticksToRotateOver+1);
     return yawPerTick;
   }
 
+  public void rotImmediately(Player p, Plugin plugin, WorldPermutation currentRot, WorldPermutation closestFace) {
+    Location lastPlayerPosition = p.getLocation();
+    new BukkitRunnable() {
+
+      Vector newVelo;
+      @Override
+      public void run() {
+        Location pLoc = p.getLocation();
+        Location displacement = pLoc.subtract(lastPlayerPosition);
+
+        int ticks = 1;
+        Vector velocity = new Vector(displacement.getX() / ticks,displacement.getY() / ticks, displacement.getZ() / ticks);
+
+        Location rotatedLocation = currentRot.getMinecraftWorldLocationOnOtherCube(closestFace, p.getLocation());
+        Vector rotatedVelocity = currentRot.rotateVectorToOtherCube(velocity, closestFace);
+        p.teleport(rotatedLocation);
+        p.setVelocity(rotatedVelocity);
+
+        currentPermutationOfPlayer.put(p.getUniqueId(), closestFace);
+        cancel();
+        return;
+
+      }
+    }.runTaskLater(plugin, 1);
+  }
+
   public void rotTimer(Player p, Plugin plugin, WorldPermutation currentRot, WorldPermutation closestFace, float yawForSeamlessSwitch, Vector3d directionOfNewFace, boolean shouldBoost) {
 
-    int ticksToRotateOver = 8;
+    int ticksToRotateOver = 3;
 
     //todo: ROTATION
 
@@ -248,12 +280,14 @@ public class CubeWorld {
 
           if (counter == 1) {
             Vector velocityTowardNewFace = new Vector(0,0,0);
-            if (shouldBoost) {
-              p.sendMessage("boosting");
-              velocityTowardNewFace = new Vector(directionOfNewFace.x * 0.2, 0, directionOfNewFace.z * 0.2);
+//            if (shouldBoost) {
+//              p.sendMessage("boosting");
+//              velocityTowardNewFace = new Vector(directionOfNewFace.x * 0.2, 0, directionOfNewFace.z * 0.2);
+//
+//            }
 
-            }
-            newVelo = velocity.add(new Vector(0,0.2,0)).add(velocityTowardNewFace);
+            //this isnt just down
+            newVelo = velocity.add(new Vector(0,0,0)).add(velocityTowardNewFace);
             if (newVelo.getY() > 0) {
               newVelo.setY(0);
             }
@@ -338,7 +372,6 @@ public class CubeWorld {
 
 
   public boolean teleportToClosestFace(Player player) {
-    player.sendMessage("ur off the face bruh");
     UUID uuid = player.getUniqueId();
 
     Location loc = player.getLocation();
@@ -353,18 +386,21 @@ public class CubeWorld {
 //    WorldPermutation closestFace = findClosestFaceOtherThanCurrent(cubeWorldCoordinateOfPlayer, currentRot);
 
     Vector3d directionOfClosestFace = currentRot.axisTransformation.apply(closestFace.topFaceCoordinateOnMainWorld).normalize();
-
+    Vector3d copyClosest = new Vector3d(directionOfClosestFace.x, directionOfClosestFace.y, directionOfClosestFace.z);
     //make sure the player has at least 1 block of space in the opposite direction as the face
     //they are switching to, to make room for the players legs when they teleport
     //if im doing this^ it needs to be opposite when facing toward the center
 
+    player.sendMessage("direction: " + directionOfClosestFace);
+
+    player.sendMessage("closest face: " + closestFace.index);
     if ((closestFace == currentRot) /*|| (behindLoc.getBlock().getBlockData().getMaterial() != Material.AIR)*/) return false;
 
     Location behindLoc = player.getLocation().subtract(directionOfClosestFace.x,directionOfClosestFace.y,directionOfClosestFace.z);
 
     boolean shouldBoost = (behindLoc.getBlock().getBlockData().getMaterial() != Material.AIR);
 
-    currentPermutationOfPlayer.put(uuid, null);
+
     //null used to indicate teleportation in progress
 
 
@@ -386,7 +422,22 @@ public class CubeWorld {
     //cant use WE for that^^
     float yawForSeamlessSwitch = currentRot.getYawForSeamlessSwitch(directionOfClosestFace, player.getLocation().getYaw());
 
-    rotTimer(player,plugin, currentRot, closestFace, yawForSeamlessSwitch, directionOfClosestFace, shouldBoost);
+
+
+    if ((copyClosest.y < 0)) {
+      player.sendMessage("opposite " + player.getLocation().getYaw());
+      rotImmediately(player, plugin, currentRot, closestFace);
+      currentPermutationOfPlayer.put(uuid, null);
+    } else if (Math.abs(differenceBetweenYaws(yawForSeamlessSwitch, player.getLocation().getYaw())) <= 5) {
+      player.sendMessage(" not opposite " + player.getLocation().getYaw());
+      rotTimer(player,plugin, currentRot, closestFace, yawForSeamlessSwitch, directionOfClosestFace, shouldBoost);
+      currentPermutationOfPlayer.put(uuid, null);
+    } else {
+      player.sendMessage("direction: " + directionOfClosestFace);
+      player.sendMessage("why no? " + directionOfClosestFace.y);
+      //calculate vector to send player back. it isnt just the opposite of direction of closest face
+      //take into account the direction the player is looking
+    }
 
 
     return true;
