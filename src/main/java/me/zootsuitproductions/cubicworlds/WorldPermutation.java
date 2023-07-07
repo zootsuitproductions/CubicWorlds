@@ -1,11 +1,20 @@
 package me.zootsuitproductions.cubicworlds;
 
+import static me.zootsuitproductions.cubicworlds.TransformationUtils.getVectorFromAxis;
+import static me.zootsuitproductions.cubicworlds.TransformationUtils.getVectorFromBlockFace;
+
+import org.bukkit.Axis;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.Bisected.Half;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
+import org.bukkit.block.data.Orientable;
+import org.bukkit.block.data.type.Door;
 import org.bukkit.block.data.type.Stairs;
+import org.bukkit.block.data.type.TrapDoor;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 import org.joml.Vector3d;
@@ -25,22 +34,90 @@ public class WorldPermutation {
     this.topFaceCoordinateOnMainWorld = topFaceCoordinateOnMainWorld;
   }
 
-  public BlockData unrotateBlockData(BlockData blockData) {
-    if (blockData instanceof Stairs) {
-      Stairs stairs = (Stairs) blockData;
-      return TransformationUtils.unrotateStairs(stairs, axisTransformation);
-    }
-
-    return blockData;
-  }
 
   public BlockData rotateBlockData(BlockData blockData, WorldPermutation from) {
     if (blockData instanceof Stairs) {
       Stairs stairs = (Stairs) blockData;
       return rotateStairsFrom(stairs, from);
+    } else if (blockData instanceof Door) {
+      Door door = (Door) blockData;
+      return rotateDoor(door,from);
+      //open true means no vertical vector facing
+      //open false and half bottom means facing up
+      //open false and half top means facing down
+    } else if (blockData instanceof Directional) {
+      Directional directional = (Directional) blockData.clone();
+
+      return rotateDirectionalFrom(directional, from);
+     } else if (blockData instanceof Orientable) {
+      Orientable orientable = (Orientable) blockData.clone();
+
+      return rotateOrientableFrom(orientable, from);
     }
 
     return blockData;
+  }
+
+  private Material convertDoorToTrap(Material doorMaterial) {
+    switch (doorMaterial) {
+      case ACACIA_DOOR:
+        return Material.ACACIA_TRAPDOOR;
+      case BIRCH_DOOR:
+        return Material.BIRCH_TRAPDOOR;
+      case DARK_OAK_DOOR:
+        return Material.DARK_OAK_TRAPDOOR;
+      case IRON_DOOR:
+        return Material.IRON_TRAPDOOR;
+      case JUNGLE_DOOR:
+        return Material.JUNGLE_TRAPDOOR;
+      case OAK_DOOR:
+        return Material.OAK_TRAPDOOR;
+      case SPRUCE_DOOR:
+        return Material.SPRUCE_TRAPDOOR;
+      case CRIMSON_DOOR:
+        return Material.CRIMSON_TRAPDOOR;
+      case WARPED_DOOR:
+        return Material.WARPED_TRAPDOOR;
+      default:
+        // If the provided door material is not recognized, you can return null or handle the case as per your needs
+        return null;
+    }
+  }
+
+
+  private TrapDoor rotateDoor(Door door, WorldPermutation from) {
+    Vector3d facing = axisTransformation.apply(from.axisTransformation.unapply(getVectorFromBlockFace(door.getFacing())));
+    TrapDoor trapDoor = (TrapDoor) convertDoorToTrap(door.getMaterial()).createBlockData();
+
+    if (facing.y > 0) {
+      trapDoor.setOpen(false);
+    } else if (facing.y < 0) {
+      trapDoor.setOpen(false);
+      trapDoor.setHalf(Half.TOP);
+    } else {
+      trapDoor.setOpen(true);
+      trapDoor.setFacing(TransformationUtils.getBlockFaceFromVector(facing));
+    }
+    return trapDoor;
+  }
+
+  private Directional rotateDirectionalFrom(Directional directional, WorldPermutation from) {
+    BlockFace newDirection = TransformationUtils.getBlockFaceFromVector(
+        axisTransformation.apply(from.axisTransformation.unapply(getVectorFromBlockFace(directional.getFacing()))));
+    directional.setFacing(newDirection);
+
+    return directional;
+
+  }
+
+  private Orientable rotateOrientableFrom(Orientable orientable, WorldPermutation from) {
+    Axis axis = TransformationUtils.getAxisFromVector(
+        axisTransformation.apply(from.axisTransformation.unapply(getVectorFromAxis(orientable.getAxis()))));
+    orientable.setAxis(axis);
+
+
+    return orientable;
+
   }
 
   private Stairs rotateStairsFrom(Stairs stairs1, WorldPermutation from) {

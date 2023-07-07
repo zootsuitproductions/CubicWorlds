@@ -100,39 +100,6 @@ public class TransformationUtils {
     //need 2 vectors:::
 
 
-
-    public static Stairs rotateStairs(Stairs stairs, AxisTransformation transformation) {
-        Vector3d v1 = transformation.apply(getHorizontalStairsVector(stairs));
-        Vector3d v2 = transformation.apply(getVerticalStairsVector(stairs));
-
-        if (v1.y == 0) {
-            //v1 is the horizontal component
-            stairs.setFacing(getBlockFaceFromVector(v1));
-            stairs.setHalf(getHalfFromVector(v2));
-        } else {
-            //v2 is horizontal
-            stairs.setFacing(getBlockFaceFromVector(v2));
-            stairs.setHalf(getHalfFromVector(v1));
-        }
-        return stairs;
-    }
-
-    public static Stairs unrotateStairs(Stairs stairs, AxisTransformation transformation) {
-        Vector3d v1 = transformation.unapply(getHorizontalStairsVector(stairs));
-        Vector3d v2 = transformation.unapply(getVerticalStairsVector(stairs));
-
-        if (v1.y == 0) {
-            //v1 is the horizontal component
-            stairs.setFacing(getBlockFaceFromVector(v1));
-            stairs.setHalf(getHalfFromVector(v2));
-        } else {
-           //v2 is horizontal
-            stairs.setFacing(getBlockFaceFromVector(v2));
-            stairs.setHalf(getHalfFromVector(v1));
-        }
-        return stairs;
-    }
-
     public static Vector3d getHorizontalStairsVector(Stairs stairs) {
         return getVectorFromBlockFace(stairs.getFacing());
     }

@@ -15,14 +15,22 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.WorldType;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.Door;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockFromToEvent;
+import org.bukkit.event.block.BlockMultiPlaceEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.EntityBlockFormEvent;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -55,17 +63,13 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     }
   }
 
-  //EVENTS : make seperate files
   @EventHandler
   public void onBlockBreak(BlockBreakEvent event) {
     if (cube == null) return;
 
     Location bLoc = event.getBlock().getLocation();
-    WorldPermutation perm = cube.getClosestPermutation(bLoc);
 
-    Vector3d cubeWorldCoord = perm.getWorldCoordinate(bLoc);
-
-    cube.setBlockOnAllPermsExcept(Material.AIR.createBlockData(), cubeWorldCoord, perm);
+    cube.updateBlockDataAt(bLoc, Material.AIR.createBlockData());
   }
 
   //todo: also do waterbucket placements and gravel n shit
@@ -75,10 +79,35 @@ public class CubicWorlds extends JavaPlugin implements Listener {
 
     Location bLoc = event.getBlock().getLocation();
 
-    WorldPermutation perm = cube.getClosestPermutation(bLoc);
-    Vector3d cubeWorldCoord = perm.getWorldCoordinate(bLoc);
+    cube.updateBlockDataAt(bLoc,event.getBlockPlaced().getBlockData());
+//
+//
+//    WorldPermutation perm = cube.getClosestPermutation(bLoc);
+//    //todo: potential time save getting player current permutation. id have to change the null thing tho to prevent bugs
+//
+//    Vector3d cubeWorldCoord = perm.getWorldCoordinate(bLoc);
+//
+//    cube.setBlockOnAllPermsExcept(event.getBlockPlaced().getBlockData(), cubeWorldCoord, perm);
+  }
 
-    cube.setBlockOnAllPermsExcept(event.getBlockPlaced().getBlockData(), cubeWorldCoord, perm);
+  @EventHandler
+
+  public void onMultiPlace(BlockMultiPlaceEvent event) {
+    if (cube == null) return;
+
+    BlockData blockData = event.getBlockPlaced().getBlockData();
+    if (blockData instanceof Door) {
+
+      Location bLoc = event.getBlock().getLocation().add(0,1,0);
+
+      cube.updateBlockDataAt(bLoc,event.getBlockPlaced().getBlockData());
+//
+//      WorldPermutation perm = cube.getClosestPermutation(bLoc);
+//
+//      Vector3d cubeWorldCoord = perm.getWorldCoordinate(bLoc);
+//
+//      cube.setBlockOnAllPermsExcept(event.getBlockPlaced().getBlockData(), cubeWorldCoord, perm);
+    }
   }
 
   @EventHandler
@@ -102,6 +131,46 @@ public class CubicWorlds extends JavaPlugin implements Listener {
   public void onPlayerDeath(PlayerDeathEvent event) {
     if (cube == null) return;
     cube.currentPermutationOfPlayer.put(event.getEntity().getUniqueId(), null);
+  }
+
+
+  //todo: need to take into account open and facing for the direction :///
+  @EventHandler
+  public void onPlayerInteract(PlayerInteractEvent event) {
+    if (event.getAction() == Action.RIGHT_CLICK_BLOCK && event.getClickedBlock().getBlockData() instanceof Door) {
+      Bukkit.getScheduler().runTaskLater(this, new Runnable() {
+        @Override
+        public void run() {
+          Location bLoc = event.getClickedBlock().getLocation();
+
+          WorldPermutation perm = cube.getClosestPermutation(bLoc);
+
+          Vector3d cubeWorldCoord = perm.getWorldCoordinate(bLoc);
+
+          cube.setBlockOnAllPermsExcept(bLoc.getBlock().getBlockData(), cubeWorldCoord, perm);
+        }
+      },1L);
+//      if (door.getHalf() =)
+    }
+  }
+
+  //todo: cubic worlds lava and water, gravel, making the sun shit not annoying.
+
+  @EventHandler
+  public void onWaterFlow(BlockFromToEvent event) {
+    Bukkit.getServer().broadcastMessage(event.getBlock().getType().toString());
+    if (event.getBlock().getType().equals(Material.WATER)) {
+
+      Bukkit.getServer().broadcastMessage(event.getBlock().getType().toString());
+      // Water is flowing
+      // Your code logic here
+    }
+  }
+
+  @EventHandler
+  public void onBlockFall(EntityChangeBlockEvent event) {
+    Bukkit.getServer().broadcastMessage(event.getBlock().getType().toString());
+
   }
 
   @Override

@@ -121,6 +121,13 @@ public class CubeWorld {
     });
   }
 
+  public void updateBlockDataAt(Location location, BlockData newData) {
+    WorldPermutation perm = getClosestPermutation(location);
+    Vector3d cubeWorldCoord = perm.getWorldCoordinate(location);
+
+    setBlockOnAllPermsExcept(newData, cubeWorldCoord, perm);
+  }
+
   public void setBlockOnAllPermsExcept(BlockData blockData, Vector3d cubeWorldCoordinate, WorldPermutation dontSetOnThisOne) {
     int skipIndex = dontSetOnThisOne.index;
 
@@ -133,11 +140,6 @@ public class CubeWorld {
       WorldPermutation perm = worldPermutations[i];
 
       Location loc = perm.getLocationOnThisPermFromCubeWorldCoordinate(cubeWorldCoordinate, world);
-
-      //unrotate it first
-//      TransformationUtils.rotateBlockData(blockData, dontSetOnThisOne.axisTransformation.invert());
-      //remember to rotate it to main world first
-//      perm.rotateBlockDataFromMainWorld(blockData);
 
       loc.getBlock().setBlockData(perm.rotateBlockData(blockData, dontSetOnThisOne));
 
