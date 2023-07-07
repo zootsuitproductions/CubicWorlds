@@ -27,7 +27,7 @@ public class WECubeWorldSaver {
 
     for (int i = 0; i < 6; i++) {
       commands.add("/world " + centerToCopyFrom.getWorld().getName());
-      delays.add(20*5);
+      delays.add(20*7);
       commands.add("/sel convex");
       delays.add(0);
 
@@ -72,9 +72,9 @@ public class WECubeWorldSaver {
       commands.add("/pos2 " + (x + xRadius) + "," + maxY + "," + (z + zRadius));
       delays.add(0);
 
-      commands.add("/replace grass_block moss_block");
-      delays.add(20*3);
-      commands.add("/copy");
+      commands.add("/replace grass air");
+      delays.add(20*4);
+      commands.add("/copy -b");
       delays.add(0);
       commands.add("/schem save face" + i + " -f");
       delays.add(0);
@@ -82,8 +82,10 @@ public class WECubeWorldSaver {
 
     createAndWriteFile(CubicWorlds.creatingWorldStateFileName, "true");
 
-    commands.add("stop");
+    commands.add("say done");
     delays.add(0);
+//    commands.add("stop");
+//    delays.add(0);
 
     new TimedCommandExecutor(plugin, commands, delays).execute();
   }

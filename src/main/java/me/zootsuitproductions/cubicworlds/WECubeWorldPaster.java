@@ -55,20 +55,20 @@ public class WECubeWorldPaster {
     for (int i = 0; i < 6; i++) {
       System.out.println("pasting the " + i + "th permutation");
       commands.add("/schem load face" + i);
-      delays.add(20*2);
+      delays.add(20*4);
 
       Vector rotation = faceRotationValues[i];
       commands.add("/rotate " + rotation.getBlockY() + " " + rotation.getBlockX() + " "
           + rotation.getBlockZ());
 
-      delays.add(10*1);
+      delays.add(20*2);
 
       commands.add(
           "/pos1 " + mainCubeCenter.getBlockX() + "," + mainCubeCenter.getBlockY() + "," + mainCubeCenter.getBlockZ());
       delays.add(0);
 
-      commands.add("/paste -a");
-      delays.add(5*3);
+      commands.add("/paste -a -b");
+      delays.add(0);
     }
 
     for (int currentRotation = 1; currentRotation < permRotationValues.length; currentRotation++) {
@@ -113,7 +113,7 @@ public class WECubeWorldPaster {
 //                + (mainCubeCenter.getBlockY()) + "," + (mainCubeCenter.getBlockZ()));
             delays.add(0);
 
-            commands.add("/paste -a");
+            commands.add("/paste -a -b");
             delays.add(5*3);
           }
         }

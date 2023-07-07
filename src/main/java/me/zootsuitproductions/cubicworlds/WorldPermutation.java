@@ -170,7 +170,6 @@ public class WorldPermutation {
         loc.getX() - (center.getBlockX() + 0.5),
         loc.getY() - (center.getBlockY() + 0.5),
         loc.getZ() - (center.getBlockZ() + 0.5));
-
      return toReturn;
   }
 

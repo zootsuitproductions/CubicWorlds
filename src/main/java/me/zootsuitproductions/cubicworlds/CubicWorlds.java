@@ -68,7 +68,6 @@ public class CubicWorlds extends JavaPlugin implements Listener {
     cube.setBlockOnAllPermsExcept(Material.AIR.createBlockData(), cubeWorldCoord, perm);
   }
 
-
   //todo: also do waterbucket placements and gravel n shit
   @EventHandler
   public void onBlockPlace(BlockPlaceEvent event) {
@@ -116,6 +115,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
 
           new WECubeWorldSaver(cubeWorldRadius).saveFacesAroundLocation(((Player) sender).getLocation(),this);
         } catch (Exception e) {
+          sender.sendMessage(e.getMessage());
           sender.sendMessage("You must specify the radius of the cube world: /createcubeworld [radius]");
           return true;
         }
@@ -125,7 +125,7 @@ public class CubicWorlds extends JavaPlugin implements Listener {
           worldName = args[1];
         }
 
-        sender.sendMessage("Creating cube world, this will take ~20 seconds. When it's done the server will close. switch your world do cube_world and start it back up");
+        sender.sendMessage("Creating cube world, this will take ~50 seconds. When it's done the server will close. switch your world do cube_world and start it back up");
 
         FileUtils.deleteFolder(new File(worldName));
 
@@ -137,8 +137,8 @@ public class CubicWorlds extends JavaPlugin implements Listener {
       createAndWriteFile("world_to_change_to.txt","world");
       Bukkit.shutdown();
 
-    } else if (cmd.getName().equalsIgnoreCase("rot")) {
-      cube.teleportPlayersIfNecessary();
+    } else if (cmd.getName().equalsIgnoreCase("pasteWorld")) {
+
     }
     return true;
   }

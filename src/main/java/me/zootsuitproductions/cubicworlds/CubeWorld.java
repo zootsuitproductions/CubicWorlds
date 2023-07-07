@@ -11,9 +11,12 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 import org.joml.Vector3d;
@@ -64,6 +67,8 @@ public class CubeWorld {
 
     cubeCenterLocations[0] = pasteCenter;
 
+    ChunkUtils.forceLoadChunksAroundLocation(cubeCenterLocations[0],radius);
+
     for (int i = 1; i < faceTransformations.length; i++) {
       cubeFaceCenters[i] = faceTransformations[i].unapply(cubeFaceCenters[0]);
 
@@ -71,6 +76,8 @@ public class CubeWorld {
           cubeCenterPositionsInTermsOfSpacing[i].getBlockX() * spacing,
           cubeCenterPositionsInTermsOfSpacing[i].getBlockY() * spacing,
           cubeCenterPositionsInTermsOfSpacing[i].getBlockZ() * spacing);
+
+      ChunkUtils.forceLoadChunksAroundLocation(cubeCenterLocations[i],radius);
 
       worldPermutations[i] = new WorldPermutation(
           cubeCenterLocations[i],
@@ -209,19 +216,30 @@ public class CubeWorld {
     }.runTaskLater(plugin, 1);
   }
 
+  private void setAirForTicks(Location loc, int ticks) {
+    Block block = loc.getBlock();
+    Material mat = block.getType();
+    block.setType(Material.AIR);
+    Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+      @Override
+      public void run() {
+        block.setType(mat);
+      }
+    }, ticks);
+  }
+
   public void rotTimer(Player p, Plugin plugin, WorldPermutation currentRot, WorldPermutation closestFace, float yawForSeamlessSwitch, Vector3d directionOfNewFace, boolean shouldBoost) {
 
-    int ticksToRotateOver = 3;
+    int ticksToRotateOver = 2;
 
     new BukkitRunnable() {
       int counter = 0;
       Location lastPlayerPosition = p.getLocation();
-      float yawPerTick = calculateYawToRotatePerTick(p.getLocation().getYaw(), yawForSeamlessSwitch, ticksToRotateOver);
-
+//      float yawPerTick = calculateYawToRotatePerTick(p.getLocation().getYaw(), yawForSeamlessSwitch, ticksToRotateOver);
       Vector newVelo;
       @Override
       public void run() {
-        yawPerTick = calculateYawToRotatePerTick(p.getLocation().getYaw(), yawForSeamlessSwitch, ticksToRotateOver - counter);
+//        yawPerTick = calculateYawToRotatePerTick(p.getLocation().getYaw(), yawForSeamlessSwitch, ticksToRotateOver - counter);
 
         if (counter > 0) {
           Location displacement = p.getLocation().subtract(lastPlayerPosition);
@@ -253,15 +271,33 @@ public class CubeWorld {
 
           }
           Location pLoc = p.getLocation();
-          p.sendMessage("yawpertick " + yawPerTick);
-          pLoc.setYaw(pLoc.getYaw() + yawPerTick);
-          p.teleport(pLoc);
-          p.setVelocity(newVelo);
+//          p.sendMessage("yawpertick " + yawPerTick);
+//          pLoc.setYaw(pLoc.getYaw() + yawPerTick);
+
+
+          //todo: BUG
+//          p.teleport(pLoc);
+//          p.setVelocity(newVelo);
 
           if (counter >= ticksToRotateOver) {
             Location rotatedLocation = currentRot.getMinecraftWorldLocationOnOtherCube(closestFace, p.getLocation(), false, p);
             Vector rotatedVelocity = currentRot.rotateVectorToOtherCube(velocity, closestFace);
+
+//            if (rotatedLocation.clone().getBlock().getType() != Material.AIR) {
+//              rotatedLocation.clone().getBlock().setType(Material.AIR);
+
+              //reset it after!!!!
+
+            if (rotatedVelocity.getY() < 0.5) {
+              rotatedVelocity.setY(0.45);
+//              setAirForTicks(rotatedLocation.clone(), 6);
+            }
+
+//            }
+
             p.teleport(rotatedLocation);
+            p.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE,40,5, true, false));
+
             p.setVelocity(rotatedVelocity);
 
             Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
@@ -269,7 +305,7 @@ public class CubeWorld {
               public void run() {
                 currentPermutationOfPlayer.put(p.getUniqueId(), closestFace);
               }
-            }, 8L);
+            }, 20L);
             cancel();
             return;
           }
@@ -283,6 +319,7 @@ public class CubeWorld {
   public WorldPermutation getFacePlayerShouldTeleportTo(Player player) {
     WorldPermutation currentRot = currentPermutationOfPlayer.getOrDefault(player.getUniqueId(), worldPermutations[0]);
 
+    //get direction
     if (currentRot == null) return null;
 
     Location loc = player.getLocation();
@@ -291,7 +328,7 @@ public class CubeWorld {
     Vector3d cubeWorldCoordinateOfPlayer = currentRot.getCubeWorldCoordinate(eyeLoc);
     WorldPermutation closestFace = findClosestFaceToCubeWorldCoordinate(cubeWorldCoordinateOfPlayer);
 
-    if ((currentRot.isLocationOffOfFaceRadius(eyeLoc)) && (closestFace != currentRot)) {
+    if ((closestFace != currentRot)) {
       return closestFace;
     }
     return null;
@@ -302,6 +339,7 @@ public class CubeWorld {
 
     WorldPermutation currentRot = currentPermutationOfPlayer.getOrDefault(uuid, worldPermutations[0]);
 
+    //optimize
     Vector3d directionOfClosestFace = currentRot.axisTransformation.apply(newPerm.topFaceCoordinateOnMainWorld).normalize();
     Vector3d clone = new Vector3d(directionOfClosestFace.x, directionOfClosestFace.y, directionOfClosestFace.z);
 
@@ -313,7 +351,7 @@ public class CubeWorld {
 
     float yawForSeamlessSwitch = currentRot.getYawForSeamlessSwitch(directionOfClosestFace, player.getLocation().getYaw());
 
-    if (Math.abs(calculateDegreeDifference(yawForSeamlessSwitch, player.getLocation().getYaw())) <= 5) {
+    if (Math.abs(calculateDegreeDifference(yawForSeamlessSwitch, player.getLocation().getYaw())) <= 40) {
 
       Location behindLoc = player.getLocation().subtract(directionOfClosestFace.x,directionOfClosestFace.y,directionOfClosestFace.z);
       boolean shouldBoost = (behindLoc.getBlock().getBlockData().getMaterial() != Material.AIR);
