@@ -1,7 +1,11 @@
 package me.zootsuitproductions.cubicworlds;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Directional;
+import org.bukkit.block.data.type.Stairs;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 import org.joml.Vector3d;
@@ -19,6 +23,42 @@ public class WorldPermutation {
     this.axisTransformation = upFace;
     this.index = index;
     this.topFaceCoordinateOnMainWorld = topFaceCoordinateOnMainWorld;
+  }
+
+  public BlockData unrotateBlockData(BlockData blockData) {
+    if (blockData instanceof Stairs) {
+      Stairs stairs = (Stairs) blockData;
+      return TransformationUtils.unrotateStairs(stairs, axisTransformation);
+    }
+
+    return blockData;
+  }
+
+  public BlockData rotateBlockData(BlockData blockData, WorldPermutation from) {
+    if (blockData instanceof Stairs) {
+      Stairs stairs = (Stairs) blockData;
+      return rotateStairsFrom(stairs, from);
+    }
+
+    return blockData;
+  }
+
+  private Stairs rotateStairsFrom(Stairs stairs1, WorldPermutation from) {
+    Stairs stairs = (Stairs) stairs1.clone();
+
+    Vector3d v1 = axisTransformation.apply(from.axisTransformation.unapply(TransformationUtils.getHorizontalStairsVector(stairs)));
+    Vector3d v2 = axisTransformation.apply(from.axisTransformation.unapply(TransformationUtils.getVerticalStairsVector(stairs)));
+
+    if (v1.y == 0) {
+      //v1 is the horizontal component
+      stairs.setFacing(TransformationUtils.getBlockFaceFromVector(v1));
+      stairs.setHalf(TransformationUtils.getHalfFromVector(v2));
+    } else {
+      //v2 is horizontal
+      stairs.setFacing(TransformationUtils.getBlockFaceFromVector(v2));
+      stairs.setHalf(TransformationUtils.getHalfFromVector(v1));
+    }
+    return stairs;
   }
 
 
@@ -41,6 +81,11 @@ public class WorldPermutation {
 
   public Vector rotateVectorToOtherCube(Vector vector, WorldPermutation other) {
     Vector3d v3 = other.axisTransformation.apply(axisTransformation.unapply(new Vector3d(vector.getX(), vector.getY(), vector.getZ())));
+
+    if (v3.y < 0.45) {
+      v3.y = 0.45;
+    }
+
     return new Vector(v3.x, v3.y, v3.z);
   }
 
@@ -59,6 +104,17 @@ public class WorldPermutation {
 
   public Vector3d getWorldCoordinate(Location loc) {
     return axisTransformation.unapply(getRelativeCoordinate(loc));
+  }
+
+  public BlockData rotateBlockDataFromMainWorld(BlockData blockData) {
+    if (blockData instanceof Stairs) {
+      Stairs stairs = (Stairs) blockData;
+//      stairs.get
+    } else if (blockData instanceof Directional) {
+      Directional directional = (Directional) blockData;
+
+    }
+    return blockData;
   }
 
   public Location getLocationOnThisPermFromCubeWorldCoordinate(Vector3d cubeWorldCoordinate, World world) {
@@ -202,7 +258,7 @@ public class WorldPermutation {
     float yawInDirectionOfNewFace = getYawFromAxisDirectionFacing(directionOfClosestFace);
 
     if (Math.abs(getDegreesBetweenRotations(yawInDirectionOfNewFace, playerYaw)) > 90) {
-        float oppositeDirection = getYawFromAxisDirectionFacing(directionOfClosestFace.mul(-1));
+        float oppositeDirection = getYawFromAxisDirectionFacing(new Vector3d(directionOfClosestFace.x * -1, directionOfClosestFace.y * -1, directionOfClosestFace.z * -1));
         return oppositeDirection;
     }
 

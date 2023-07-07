@@ -4,15 +4,15 @@ import static me.zootsuitproductions.cubicworlds.CubicWorlds.creatingWorldStateF
 import static me.zootsuitproductions.cubicworlds.FileUtils.deleteFile;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.Stairs;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
@@ -108,7 +108,7 @@ public class CubeWorld {
       public void run() {
         teleportPlayersIfNecessary();
       }
-    }, 20L, 1L);
+    }, 20L, 2L);
   }
 
   public void teleportPlayersIfNecessary() {
@@ -123,13 +123,23 @@ public class CubeWorld {
 
   public void setBlockOnAllPermsExcept(BlockData blockData, Vector3d cubeWorldCoordinate, WorldPermutation dontSetOnThisOne) {
     int skipIndex = dontSetOnThisOne.index;
+
+    //i know, it has impossible shit. need to save vectors of unrotated instead of the data
     for (int i = 0; i < worldPermutations.length; i++) {
       if (i == skipIndex) {
         continue;
       }
-      Location loc = worldPermutations[i].getLocationOnThisPermFromCubeWorldCoordinate(cubeWorldCoordinate, world);
 
-      loc.getBlock().setBlockData(blockData);
+      WorldPermutation perm = worldPermutations[i];
+
+      Location loc = perm.getLocationOnThisPermFromCubeWorldCoordinate(cubeWorldCoordinate, world);
+
+      //unrotate it first
+//      TransformationUtils.rotateBlockData(blockData, dontSetOnThisOne.axisTransformation.invert());
+      //remember to rotate it to main world first
+//      perm.rotateBlockDataFromMainWorld(blockData);
+
+      loc.getBlock().setBlockData(perm.rotateBlockData(blockData, dontSetOnThisOne));
 
     }
   }
@@ -216,103 +226,29 @@ public class CubeWorld {
     }.runTaskLater(plugin, 1);
   }
 
-  private void setAirForTicks(Location loc, int ticks) {
-    Block block = loc.getBlock();
-    Material mat = block.getType();
-    block.setType(Material.AIR);
+  public void translatePlayerMovementToNewPerm(Player p, Plugin plugin, WorldPermutation currentRot, WorldPermutation newPerm, boolean isPermOnOppositeSide) {
+    currentPermutationOfPlayer.put(p.getUniqueId(), null);
+
+    final Location lastPlayerPosition = p.getLocation();
     Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
       @Override
       public void run() {
-        block.setType(mat);
-      }
-    }, ticks);
-  }
+        Vector velocity = p.getLocation().subtract(lastPlayerPosition).toVector(); //because its over 1 tick, the displacement is the velocity (blocks per tick)
 
-  public void rotTimer(Player p, Plugin plugin, WorldPermutation currentRot, WorldPermutation closestFace, float yawForSeamlessSwitch, Vector3d directionOfNewFace, boolean shouldBoost) {
+        Location rotatedLocation = currentRot.getMinecraftWorldLocationOnOtherCube(newPerm, p.getLocation(), isPermOnOppositeSide, p);
+        Vector rotatedVelocity = currentRot.rotateVectorToOtherCube(velocity, newPerm);
 
-    int ticksToRotateOver = 2;
-
-    new BukkitRunnable() {
-      int counter = 0;
-      Location lastPlayerPosition = p.getLocation();
-//      float yawPerTick = calculateYawToRotatePerTick(p.getLocation().getYaw(), yawForSeamlessSwitch, ticksToRotateOver);
-      Vector newVelo;
-      @Override
-      public void run() {
-//        yawPerTick = calculateYawToRotatePerTick(p.getLocation().getYaw(), yawForSeamlessSwitch, ticksToRotateOver - counter);
-
-        if (counter > 0) {
-          Location displacement = p.getLocation().subtract(lastPlayerPosition);
-          lastPlayerPosition = p.getLocation();
-
-          int ticks = 1;
-          Vector velocity = new Vector(displacement.getX() / ticks,displacement.getY() / ticks, displacement.getZ() / ticks);
-          //add velocity in the outward direction too, to move one block out
-//
-
-
-          if (counter == 1) {
-            Vector velocityTowardNewFace = new Vector(0,0,0);
-            //todo instead of doing the boost thing, check if the player's outward velocity is enough to avoid issues
-            //if it isn't, bounce them back
-
-
-//            if (shouldBoost) {
-//              p.sendMessage("boosting");
-//              velocityTowardNewFace = new Vector(directionOfNewFace.x * 0.2, 0, directionOfNewFace.z * 0.2);
-//
-//            }
-
-            //this isnt just down
-            newVelo = velocity.add(new Vector(0,0,0)).add(velocityTowardNewFace);
-            if (newVelo.getY() > 0) {
-              newVelo.setY(0);
-            }
-
+        p.teleport(rotatedLocation);
+        p.setVelocity(rotatedVelocity);
+        p.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE,40,5, true, false));
+        Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+          @Override
+          public void run() {
+            currentPermutationOfPlayer.put(p.getUniqueId(), newPerm);
           }
-          Location pLoc = p.getLocation();
-//          p.sendMessage("yawpertick " + yawPerTick);
-//          pLoc.setYaw(pLoc.getYaw() + yawPerTick);
-
-
-          //todo: BUG
-//          p.teleport(pLoc);
-//          p.setVelocity(newVelo);
-
-          if (counter >= ticksToRotateOver) {
-            Location rotatedLocation = currentRot.getMinecraftWorldLocationOnOtherCube(closestFace, p.getLocation(), false, p);
-            Vector rotatedVelocity = currentRot.rotateVectorToOtherCube(velocity, closestFace);
-
-//            if (rotatedLocation.clone().getBlock().getType() != Material.AIR) {
-//              rotatedLocation.clone().getBlock().setType(Material.AIR);
-
-              //reset it after!!!!
-
-            if (rotatedVelocity.getY() < 0.5) {
-              rotatedVelocity.setY(0.45);
-//              setAirForTicks(rotatedLocation.clone(), 6);
-            }
-
-//            }
-
-            p.teleport(rotatedLocation);
-            p.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE,40,5, true, false));
-
-            p.setVelocity(rotatedVelocity);
-
-            Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-              @Override
-              public void run() {
-                currentPermutationOfPlayer.put(p.getUniqueId(), closestFace);
-              }
-            }, 20L);
-            cancel();
-            return;
-          }
-        }
-        counter ++;
+        }, 20L);
       }
-    }.runTaskTimer(plugin, 0, 1);
+    }, 1L);
   }
 
   //return null if shouldnt be teleported
@@ -337,37 +273,22 @@ public class CubeWorld {
   public void teleportPlayerToNewPerm(Player player, WorldPermutation newPerm) {
     UUID uuid = player.getUniqueId();
 
-    WorldPermutation currentRot = currentPermutationOfPlayer.getOrDefault(uuid, worldPermutations[0]);
-
-    //optimize
-    Vector3d directionOfClosestFace = currentRot.axisTransformation.apply(newPerm.topFaceCoordinateOnMainWorld).normalize();
-    Vector3d clone = new Vector3d(directionOfClosestFace.x, directionOfClosestFace.y, directionOfClosestFace.z);
+    WorldPermutation currentPerm = currentPermutationOfPlayer.getOrDefault(uuid, worldPermutations[0]);
+    Vector3d directionOfClosestFace = currentPerm.axisTransformation.apply(newPerm.topFaceCoordinateOnMainWorld).normalize();
 
     if (directionOfClosestFace.y < 0) { //going to other side of the world
-      teleportPlayerToNewCubePermutationASAP(player, plugin, currentRot, newPerm);
-      currentPermutationOfPlayer.put(uuid, null);
+      translatePlayerMovementToNewPerm(player, plugin, currentPerm, newPerm, true);
       return;
     }
 
-    float yawForSeamlessSwitch = currentRot.getYawForSeamlessSwitch(directionOfClosestFace, player.getLocation().getYaw());
+    float yawForSeamlessSwitch = currentPerm.getYawForSeamlessSwitch(directionOfClosestFace, player.getLocation().getYaw());
 
     if (Math.abs(calculateDegreeDifference(yawForSeamlessSwitch, player.getLocation().getYaw())) <= 40) {
-
-      Location behindLoc = player.getLocation().subtract(directionOfClosestFace.x,directionOfClosestFace.y,directionOfClosestFace.z);
-      boolean shouldBoost = (behindLoc.getBlock().getBlockData().getMaterial() != Material.AIR);
-
-      rotTimer(player,plugin, currentRot, newPerm, yawForSeamlessSwitch, directionOfClosestFace, shouldBoost);
-      currentPermutationOfPlayer.put(uuid, null);
+      translatePlayerMovementToNewPerm(player, plugin, currentPerm, newPerm, false);
     } else {
-      Vector oppositeDirection = new Vector(clone.x, -1, clone.z).multiply(-1);
-      player.sendMessage("directiopn" + oppositeDirection);
-
+      Vector oppositeDirection = new Vector(-1 * directionOfClosestFace.x, 1, -1 * directionOfClosestFace.z);
       player.setVelocity(oppositeDirection);
-      //calculate vector to send player back. it isnt just the opposite of direction of closest face
-      //take into account the direction the player is looking
     }
-
-
   }
   private WorldPermutation findClosestFaceToCubeWorldCoordinate(Vector3d mainCubeWorldCoordinate) {
 

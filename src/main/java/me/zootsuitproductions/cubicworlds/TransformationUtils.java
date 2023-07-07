@@ -3,6 +3,7 @@ package me.zootsuitproductions.cubicworlds;
 import org.bukkit.Axis;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.*;
+import org.bukkit.block.data.Bisected.Half;
 import org.bukkit.block.data.type.Stairs;
 import org.joml.Vector3d;
 
@@ -89,6 +90,66 @@ public class TransformationUtils {
                 return new Vector3d(1,0,0);
             default:
                 return new Vector3d(-1,0,0);
+        }
+    }
+
+    //todo: get stairs data from vector and vice versa
+
+    //minecarts
+    //wont work cuz the top bottom
+    //need 2 vectors:::
+
+
+
+    public static Stairs rotateStairs(Stairs stairs, AxisTransformation transformation) {
+        Vector3d v1 = transformation.apply(getHorizontalStairsVector(stairs));
+        Vector3d v2 = transformation.apply(getVerticalStairsVector(stairs));
+
+        if (v1.y == 0) {
+            //v1 is the horizontal component
+            stairs.setFacing(getBlockFaceFromVector(v1));
+            stairs.setHalf(getHalfFromVector(v2));
+        } else {
+            //v2 is horizontal
+            stairs.setFacing(getBlockFaceFromVector(v2));
+            stairs.setHalf(getHalfFromVector(v1));
+        }
+        return stairs;
+    }
+
+    public static Stairs unrotateStairs(Stairs stairs, AxisTransformation transformation) {
+        Vector3d v1 = transformation.unapply(getHorizontalStairsVector(stairs));
+        Vector3d v2 = transformation.unapply(getVerticalStairsVector(stairs));
+
+        if (v1.y == 0) {
+            //v1 is the horizontal component
+            stairs.setFacing(getBlockFaceFromVector(v1));
+            stairs.setHalf(getHalfFromVector(v2));
+        } else {
+           //v2 is horizontal
+            stairs.setFacing(getBlockFaceFromVector(v2));
+            stairs.setHalf(getHalfFromVector(v1));
+        }
+        return stairs;
+    }
+
+    public static Vector3d getHorizontalStairsVector(Stairs stairs) {
+        return getVectorFromBlockFace(stairs.getFacing());
+    }
+
+    public static Vector3d getVerticalStairsVector(Stairs stairs) {
+        if (stairs.getHalf() == Half.TOP) {
+            return new Vector3d(0,1,0);
+        } else {
+            return new Vector3d(0,-1,0);
+        }
+    }
+
+    public static Half getHalfFromVector(Vector3d vector) {
+        if (vector.y > 0) {
+            return Half.TOP;
+        } else {
+            return Half.BOTTOM;
         }
     }
 
