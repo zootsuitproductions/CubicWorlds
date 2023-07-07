@@ -111,6 +111,8 @@ public class CubeWorld {
     }, 20L, 2L);
   }
 
+
+
   public void teleportPlayersIfNecessary() {
     world.getPlayers().forEach(p ->
     {
@@ -130,6 +132,7 @@ public class CubeWorld {
 
   public void setBlockOnAllPermsExcept(BlockData blockData, Vector3d cubeWorldCoordinate, WorldPermutation dontSetOnThisOne) {
     int skipIndex = dontSetOnThisOne.index;
+    System.out.println(skipIndex);
 
     //i know, it has impossible shit. need to save vectors of unrotated instead of the data
     for (int i = 0; i < worldPermutations.length; i++) {
@@ -294,6 +297,8 @@ public class CubeWorld {
   }
   private WorldPermutation findClosestFaceToCubeWorldCoordinate(Vector3d mainCubeWorldCoordinate) {
 
+    //find the distance and use that for performance increases (schedule individual player checks based on how close they are.
+    //also remember to reset it on respawn and player join, cancel on player dea
     int closestFaceIndex = 0;
     double closestDistance = mainCubeWorldCoordinate.distance(cubeFaceCenters[0]);
 
